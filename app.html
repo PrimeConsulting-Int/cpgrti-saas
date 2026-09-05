@@ -1,0 +1,1750 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consola de Riesgo Tecnológico — CPGRTI</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+  :root{
+    --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E7EBEF; --surface-3:#DCE2E8;
+    --border:#CBD3DB; --text:#17212B; --text-muted:#57677A;
+    --accent:#1E4B72; --accent-2:#2F6690; --accent-soft:#E2ECF3;
+    --risk-bajo:#3E8E62; --risk-bajo-soft:#E3F1E8;
+    --risk-medio:#B8862A; --risk-medio-soft:#F7EDDA;
+    --risk-alto:#C0692F; --risk-alto-soft:#F8E7D9;
+    --risk-critico:#AC3527; --risk-critico-soft:#F7DEDA;
+    --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+    --shadow: 0 1px 2px rgba(23,33,43,.06), 0 4px 14px rgba(23,33,43,.06);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0F1620; --surface:#161F2B; --surface-2:#1D2733; --surface-3:#26313F;
+      --border:#2C3946; --text:#E7EDF3; --text-muted:#8FA0B3;
+      --accent:#6FA8D6; --accent-2:#8FBEE3; --accent-soft:#1B2E3F;
+      --risk-bajo:#5FBE8B; --risk-bajo-soft:#173226;
+      --risk-medio:#E3B94E; --risk-medio-soft:#332A15;
+      --risk-alto:#E89A57; --risk-alto-soft:#37270f;
+      --risk-critico:#E8654F; --risk-critico-soft:#3a1c17;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 18px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1620; --surface:#161F2B; --surface-2:#1D2733; --surface-3:#26313F;
+    --border:#2C3946; --text:#E7EDF3; --text-muted:#8FA0B3;
+    --accent:#6FA8D6; --accent-2:#8FBEE3; --accent-soft:#1B2E3F;
+    --risk-bajo:#5FBE8B; --risk-bajo-soft:#173226;
+    --risk-medio:#E3B94E; --risk-medio-soft:#332A15;
+    --risk-alto:#E89A57; --risk-alto-soft:#37270f;
+    --risk-critico:#E8654F; --risk-critico-soft:#3a1c17;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"]{
+    --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E7EBEF; --surface-3:#DCE2E8;
+    --border:#CBD3DB; --text:#17212B; --text-muted:#57677A;
+    --accent:#1E4B72; --accent-2:#2F6690; --accent-soft:#E2ECF3;
+    --risk-bajo:#3E8E62; --risk-bajo-soft:#E3F1E8;
+    --risk-medio:#B8862A; --risk-medio-soft:#F7EDDA;
+    --risk-alto:#C0692F; --risk-alto-soft:#F8E7D9;
+    --risk-critico:#AC3527; --risk-critico-soft:#F7DEDA;
+    color-scheme: light;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--font-body);
+    font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:var(--font-display); font-weight:700; text-wrap:balance; margin:0;}
+  a{color:var(--accent);}
+  button, input, select, textarea{font-family:inherit; font-size:inherit; color:inherit;}
+  button{cursor:pointer;}
+  ::selection{background:var(--accent-soft);}
+  .num{font-variant-numeric:tabular-nums; font-family:var(--font-mono);}
+
+  #app{min-height:100vh; display:flex; flex-direction:column;}
+
+  /* ---- Header ---- */
+  header.appbar{
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:14px 22px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    position:sticky; top:0; z-index:20;
+  }
+  .brand{display:flex; flex-direction:column; gap:1px; min-width:220px;}
+  .brand .mark{font-family:var(--font-display); font-size:20px; font-weight:700; color:var(--accent); letter-spacing:.2px;}
+  .brand .org{font-size:12px; color:var(--text-muted);}
+  .brand .org input{
+    background:transparent; border:none; border-bottom:1px dashed transparent; color:var(--text-muted);
+    font-size:12px; padding:0; width:260px;
+  }
+  .brand .org input:hover, .brand .org input:focus{border-bottom-color:var(--border); outline:none;}
+  .headctl{margin-left:auto; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .headctl label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); display:block; margin-bottom:2px;}
+  .headctl .field select, .headctl .field input[type=date]{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:5px 8px; color:var(--text);
+  }
+  .btn{
+    background:var(--accent); color:#fff; border:1px solid var(--accent); border-radius:7px;
+    padding:8px 14px; font-size:13px; font-weight:600; white-space:nowrap;
+  }
+  .btn:hover{background:var(--accent-2); border-color:var(--accent-2);}
+  .btn.ghost{background:transparent; color:var(--accent); border-color:var(--border);}
+  .btn.ghost:hover{background:var(--accent-soft); border-color:var(--accent);}
+  .btn.subtle{background:var(--surface-2); color:var(--text); border-color:var(--border);}
+  .btn.subtle:hover{background:var(--surface-3);}
+  .btn.danger{background:transparent; color:var(--risk-critico); border-color:var(--border);}
+  .btn.danger:hover{background:var(--risk-critico-soft);}
+  .btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+  .btn[disabled]{opacity:.45; cursor:not-allowed;}
+
+  /* ---- Nav ---- */
+  nav.tabs{
+    background:var(--surface); border-bottom:1px solid var(--border);
+    display:flex; gap:2px; padding:0 16px; overflow-x:auto; position:sticky; top:65px; z-index:19;
+  }
+  nav.tabs button{
+    background:none; border:none; border-bottom:2px solid transparent; padding:11px 14px 9px;
+    font-size:13px; font-weight:600; color:var(--text-muted); white-space:nowrap; display:flex; gap:7px; align-items:center;
+  }
+  nav.tabs button .ic{font-size:14px; opacity:.85;}
+  nav.tabs button:hover{color:var(--text);}
+  nav.tabs button.active{color:var(--accent); border-bottom-color:var(--accent);}
+  nav.tabs button .badge{
+    background:var(--risk-critico); color:#fff; font-size:10px; font-weight:700; border-radius:999px;
+    padding:1px 6px; font-family:var(--font-mono);
+  }
+
+  main{flex:1; padding:22px; max-width:1440px; margin:0 auto; width:100%;}
+  .view-title{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:4px; flex-wrap:wrap;}
+  .view-title h2{font-size:23px;}
+  .view-sub{color:var(--text-muted); font-size:13px; margin-bottom:20px; max-width:74ch;}
+
+  /* ---- Cards / grid ---- */
+  .grid{display:grid; gap:16px;}
+  .grid.cols-4{grid-template-columns:repeat(4,1fr);}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr);}
+  @media (max-width:1080px){ .grid.cols-4{grid-template-columns:repeat(2,1fr);} .grid.cols-3{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:640px){ .grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;} }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px;
+    box-shadow:var(--shadow);
+  }
+  .card h3{font-size:14px; font-family:var(--font-body); font-weight:700; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .card h3 .hint{font-weight:500; font-size:11px; color:var(--text-muted); text-transform:none;}
+
+  .stat{padding:18px; display:flex; flex-direction:column; gap:6px;}
+  .stat .label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600;}
+  .stat .value{font-family:var(--font-display); font-size:34px; line-height:1;}
+  .stat .sub{font-size:12px; color:var(--text-muted);}
+  .stat.warn .value{color:var(--risk-critico);}
+
+  /* ---- Pills / severity ---- */
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px;
+    font-size:11.5px; font-weight:700; letter-spacing:.01em; white-space:nowrap;
+  }
+  .pill .dot{width:6px; height:6px; border-radius:50%; background:currentColor;}
+  .pill.bajo{color:var(--risk-bajo); background:var(--risk-bajo-soft);}
+  .pill.medio{color:var(--risk-medio); background:var(--risk-medio-soft);}
+  .pill.alto{color:var(--risk-alto); background:var(--risk-alto-soft);}
+  .pill.critico{color:var(--risk-critico); background:var(--risk-critico-soft);}
+  .pill.verde{color:var(--risk-bajo); background:var(--risk-bajo-soft);}
+  .pill.amarillo{color:var(--risk-medio); background:var(--risk-medio-soft);}
+  .pill.rojo{color:var(--risk-critico); background:var(--risk-critico-soft);}
+  .pill.neutro{color:var(--text-muted); background:var(--surface-2);}
+
+  .stripe{width:4px; align-self:stretch; border-radius:3px; flex-shrink:0;}
+  .stripe.bajo{background:var(--risk-bajo);}
+  .stripe.medio{background:var(--risk-medio);}
+  .stripe.alto{background:var(--risk-alto);}
+  .stripe.critico{background:var(--risk-critico);}
+
+  /* ---- Table ---- */
+  .tablewrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--surface);}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
+    background:var(--surface-2); padding:9px 12px; border-bottom:1px solid var(--border); white-space:nowrap; font-weight:700;
+  }
+  tbody td{padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--surface-2);}
+  td.num, th.num{text-align:right; font-family:var(--font-mono);}
+  .rowlink{background:none;border:none;color:var(--accent);font-weight:600;padding:2px 4px;}
+  .rowlink:hover{text-decoration:underline;}
+  .muted{color:var(--text-muted);}
+  .small{font-size:12px;}
+
+  /* ---- Heatmap widget ---- */
+  .heatmap-toolbar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;}
+  .dim-tabs{display:flex; gap:5px; flex-wrap:wrap;}
+  .dim-tab{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:5px 11px;
+    font-size:11.5px; font-weight:600; color:var(--text-muted); white-space:nowrap;
+  }
+  .dim-tab:hover{color:var(--text); border-color:var(--accent);}
+  .dim-tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .vista-toggle{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0;}
+  .vista-toggle button{
+    background:var(--surface-2); border:none; padding:6px 13px; font-size:11.5px; font-weight:700; color:var(--text-muted);
+    border-left:1px solid var(--border);
+  }
+  .vista-toggle button:first-child{border-left:none;}
+  .vista-toggle button.active{background:var(--accent); color:#fff;}
+  .heatmap-filters{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .heatmap-filters select{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:5px 8px; font-size:12px; color:var(--text);
+    max-width:220px;
+  }
+  .heatmap-filters .flabel{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700; display:block; margin-bottom:2px;}
+  /* the matrix header uses a fixed navy panel in both themes — it reads as a printed reference table, not a themed surface */
+  table.heatmap-table{border-collapse:separate; border-spacing:4px; width:100%; --heat-navy:#1B3A5C; --heat-navy-2:#2C567F;}
+  table.heatmap-table th{background:var(--heat-navy); border:none; font-size:11px; text-transform:none; letter-spacing:0; padding:8px 8px; color:#EAF1F8; font-weight:700; border-radius:6px;}
+  table.heatmap-table th.corner{font-size:10.5px; text-align:left; vertical-align:bottom; background:var(--heat-navy);}
+  table.heatmap-table th.colhead{text-align:center; line-height:1.35;}
+  table.heatmap-table th.colhead .sub, table.heatmap-table th.rowhead .sub{display:block; font-weight:500; font-size:9.5px; color:#B9CBDC; text-transform:none; letter-spacing:0; margin-top:1px;}
+  table.heatmap-table th.rowhead{text-align:right; white-space:normal; padding-right:12px; background:var(--heat-navy-2); line-height:1.35;}
+  .heat-td{
+    position:relative; border-radius:7px; height:62px; min-width:78px; text-align:center; vertical-align:middle;
+    cursor:pointer; border:2px solid transparent; transition:border-color .12s ease, transform .12s ease;
+  }
+  .heat-td:hover{border-color:var(--text); transform:translateY(-1px);}
+  .heat-td.selected{border-color:var(--text); box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--text);}
+  .heat-td .count-badge{
+    display:block; font-size:19px; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); font-family:var(--font-mono);
+  }
+  .heat-td .warn-badge{
+    position:absolute; top:4px; right:5px; font-size:9.5px; font-weight:700; color:var(--risk-critico);
+    background:#fff; border-radius:999px; padding:1px 4px; line-height:1.3;
+  }
+  .heatmap-detail{
+    margin-top:12px; border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:0 8px 8px 0;
+    background:var(--accent-soft); padding:12px 14px;
+  }
+  .heatmap-detail .hdr{font-size:12px; font-weight:700; margin-bottom:8px; display:flex; justify-content:space-between;}
+  .heatmap-detail .hdr button{background:none; border:none; color:var(--text-muted); font-size:12px; font-weight:600;}
+  .heatmap-detail .item{padding:6px 0; border-bottom:1px solid var(--border); font-size:12.5px;}
+  .heatmap-detail .item:last-child{border-bottom:none;}
+
+  /* ---- Sparkline ---- */
+  .spark{display:block;}
+
+  /* ---- Forms / modal ---- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(15,22,32,.55); display:flex; align-items:flex-start; justify-content:center;
+    padding:40px 16px; z-index:100; overflow-y:auto;
+  }
+  .modal{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; width:100%; max-width:640px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35); padding:22px 24px 20px;
+  }
+  .modal h3{font-size:17px; font-family:var(--font-display); margin-bottom:14px;}
+  .formgrid{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px;}
+  .formgrid .full{grid-column:1/3;}
+  @media (max-width:560px){ .formgrid{grid-template-columns:1fr;} .formgrid .full{grid-column:1;} }
+  .field label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700; margin-bottom:4px;}
+  .field input, .field select, .field textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:8px 10px; color:var(--text);
+  }
+  .field textarea{resize:vertical; min-height:56px; font-family:var(--font-body);}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
+
+  .empty{padding:38px 20px; text-align:center; color:var(--text-muted);}
+  .empty .big{font-size:28px; display:block; margin-bottom:6px; font-family:var(--font-display); color:var(--text);}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg);
+    padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600; z-index:200; box-shadow:var(--shadow);
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,-4px);}
+
+  .kri-row{display:flex; gap:12px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border);}
+  .kri-row:last-child{border-bottom:none;}
+  .kri-meta{flex:1; min-width:0;}
+  .kri-meta .name{font-weight:700; font-size:13px;}
+  .kri-meta .type{font-size:11px; color:var(--text-muted);}
+  .kri-val{font-family:var(--font-mono); font-size:20px; font-weight:700; width:64px; text-align:right;}
+
+  .procbar{height:6px; border-radius:4px; background:var(--surface-3); overflow:hidden; margin-top:6px;}
+  .procbar > div{height:100%;}
+
+  .section-note{
+    background:var(--accent-soft); border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0; padding:10px 14px; font-size:12.5px; color:var(--text-muted); margin-bottom:16px;
+  }
+  .section-note b{color:var(--text);}
+
+  fieldset{border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin:0 0 14px;}
+  legend{font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700; padding:0 6px;}
+
+  footer.appfoot{padding:26px 22px 40px; text-align:center; color:var(--text-muted); font-size:11.5px;}
+
+  @media print{
+    header.appbar, nav.tabs, .btn, footer.appfoot, .no-print{display:none !important;}
+    body{background:#fff; color:#000;}
+    main{max-width:none;}
+  }
+
+  /* ---- Auth / onboarding screens ---- */
+  .authwrap{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .authcard{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:32px; width:100%; max-width:400px;}
+  .authcard .mark{font-family:var(--font-display); font-size:22px; font-weight:700; color:var(--accent); margin-bottom:4px;}
+  .authcard .sub{color:var(--text-muted); font-size:13px; margin-bottom:22px;}
+  .authtabs{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:18px;}
+  .authtabs button{flex:1; background:var(--surface-2); border:none; padding:8px; font-size:12.5px; font-weight:700; color:var(--text-muted);}
+  .authtabs button.active{background:var(--accent); color:#fff;}
+  .authform .field{margin-bottom:12px;}
+  .authform label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700; margin-bottom:4px;}
+  .authform input{width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:9px 10px; color:var(--text);}
+  .authform .btn{width:100%; margin-top:6px; padding:10px;}
+  .autherr{color:var(--risk-critico); font-size:12.5px; margin-top:10px; min-height:1px;}
+  .authmsg{color:var(--risk-bajo); font-size:12.5px; margin-top:10px; min-height:1px;}
+  .userbadge{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted);}
+  .userbadge button{background:none; border:none; color:var(--accent); font-weight:600; font-size:12px;}
+  #authRoot[hidden], #appRoot[hidden]{display:none;}
+</style>
+</head>
+<body>
+
+<div id="authRoot"></div>
+
+<div id="appRoot" hidden>
+<div id="app">
+  <header class="appbar">
+    <div class="brand">
+      <div class="mark">Consola CPGRTI</div>
+      <div class="org">Organización: <input id="orgNameInput" type="text" /></div>
+    </div>
+    <div class="headctl no-print">
+      <div class="field">
+        <label>Tolerancia máxima aceptada</label>
+        <select id="toleranceSelect"></select>
+      </div>
+      <div class="field">
+        <label>Fecha de corte</label>
+        <input id="cutoffDate" type="date" />
+      </div>
+      <button class="btn subtle" id="snapshotBtn" title="Registra el estado actual de riesgos como punto histórico para el gráfico de evolución">Registrar snapshot mensual</button>
+      <button class="btn ghost" id="resetBtn">Restablecer datos de ejemplo</button>
+      <div class="userbadge" id="userBadge"></div>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="main"></main>
+  <footer class="appfoot">Metodología de Gestión del Riesgo Tecnológico — Riesgo = Probabilidad × Impacto × (Criticidad del Activo / 4) · Escalas y umbrales conforme a la Metodología CPGRTI · Herramienta genérica, aplicable a cualquier organización.</footer>
+</div>
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   CONSTANTS — scales, thresholds, taxonomies (from Metodología)
+   ========================================================= */
+var PROB_SCALE = [
+  {v:1,label:"Rara vez",desc:"Menos de una vez cada 5 años"},
+  {v:2,label:"Improbable",desc:"Una vez cada 2-5 años"},
+  {v:3,label:"Posible",desc:"Una vez cada 1-2 años"},
+  {v:4,label:"Probable",desc:"Varias veces al año"},
+  {v:5,label:"Casi certeza",desc:"Mensual o más frecuente"}
+];
+var IMPACT_SCALE = [
+  {v:1,label:"Insignificante",desc:"Sin afectación relevante"},
+  {v:2,label:"Menor",desc:"Afectación localizada, impacto bajo"},
+  {v:3,label:"Moderado",desc:"Afectación relevante a un proceso"},
+  {v:4,label:"Mayor",desc:"Afectación significativa, impacto alto"},
+  {v:5,label:"Catastrófico",desc:"Afectación severa a la continuidad"}
+];
+var CRIT_SCALE = [
+  {v:1,label:"Baja"},
+  {v:2,label:"Media"},
+  {v:3,label:"Alta"},
+  {v:4,label:"Crítica"}
+];
+var CATEGORIAS = ["Activo","Proceso","Escenario","Proveedor"];
+var ESTRATEGIAS = ["Mitigar","Transferir","Aceptar","Evitar"];
+var ESTADOS_RIESGO = ["Identificado","En tratamiento","Cerrado","Aceptado"];
+var TOLERANCE_LEVELS = {"Bajo":5,"Medio":10,"Alto":18};
+/* dimensiones de impacto — el impacto global de un riesgo es el mayor entre sus dimensiones (Metodología §4.2) */
+var DIMENSIONES = [
+  {key:"financiero", label:"Financiero"},
+  {key:"operativo", label:"Operativo / Continuidad"},
+  {key:"regulatorio", label:"Regulatorio"},
+  {key:"estrategico", label:"Estratégico"},
+  {key:"reputacional", label:"Reputacional"}
+];
+
+function riskScore(p,i,c){ return p*i*(c/4); }
+function riskClass(score){
+  if(score<=5) return "Bajo";
+  if(score<=10) return "Medio";
+  if(score<=18) return "Alto";
+  return "Crítico";
+}
+function classKey(c){ return {"Bajo":"bajo","Medio":"medio","Alto":"alto","Crítico":"critico"}[c]||"neutro"; }
+/* Banda de referencia fija del mapa de calor — tabla directa (Probabilidad_Impacto → nivel), sin fórmula.
+   Bajo/verde: esquina de probabilidad e impacto más bajos. Medio/amarillo: banda de impacto insignificante-menor
+   en probabilidad media-alta y moderado en probabilidad baja-media. Alto/naranja: impacto mayor, toda probabilidad.
+   Crítico/rojo: impacto catastrófico, toda probabilidad. Es fija — no cambia según los riesgos cargados. */
+var HEAT_BAND = {
+  "5_1":"medio","5_2":"medio","5_3":"alto","5_4":"alto","5_5":"critico",
+  "4_1":"medio","4_2":"medio","4_3":"alto","4_4":"alto","4_5":"critico",
+  "3_1":"bajo", "3_2":"medio","3_3":"medio","3_4":"alto","3_5":"critico",
+  "2_1":"bajo", "2_2":"medio","2_3":"medio","2_4":"alto","2_5":"critico",
+  "1_1":"bajo", "1_2":"bajo", "1_3":"medio","1_4":"alto","1_5":"critico"
+};
+function maxImpact(imp){
+  return Math.max(imp.financiero, imp.operativo, imp.regulatorio, imp.estrategico, imp.reputacional);
+}
+function riskScoreFor(risk, vista){
+  if(vista==="inherente") return riskScore(risk.probabilidad, maxImpact(risk.impactos), risk.criticidad);
+  return riskScore(risk.probabilidadResidual, maxImpact(risk.impactosResidual), risk.criticidad);
+}
+
+var SEVERITY_MATRIX = {
+  "Alto":   {"Baja":"Alto",  "Media":"Crítico","Alta":"Crítico"},
+  "Medio":  {"Baja":"Medio", "Media":"Alto",   "Alta":"Crítico"},
+  "Bajo":   {"Baja":"Bajo",  "Media":"Medio",  "Alta":"Alto"}
+};
+var RESPONSE_TARGET = {"Crítico":"< 1 hora","Alto":"< 4 horas","Medio":"< 24 horas","Bajo":"Ventana operativa estándar"};
+
+/* =========================================================
+   SEED DATA
+   ========================================================= */
+function seedState(){
+  return {
+    orgName:"[Nombre de la Organización]",
+    toleranceLevel:"Medio",
+    cutoffDate:"2026-06-01",
+    theme:null,
+    risks: [
+      r("R-001","Escenario","Ataque de ransomware que cifra los servidores del core transaccional",
+        "Indisponibilidad o pérdida de integridad del core transaccional por cifrado malicioso de su información",
+        "Core transaccional","Externo - deliberado","Parche crítico de seguridad no aplicado a tiempo",4,
+        4, {financiero:5,operativo:5,regulatorio:4,estrategico:3,reputacional:4},
+        2, {financiero:2,operativo:2,regulatorio:2,estrategico:1,reputacional:2},
+        "Mitigar","Gestión de parches; Segmentación de red; Backups aislados (air-gapped)","[CISO]","En tratamiento","2026-01-15","2026-06-01"),
+      r("R-002","Escenario","Fuga de datos de clientes a través de un proveedor de almacenamiento en la nube",
+        "Pérdida de confidencialidad de los datos de clientes (PII) por deficiencias de seguridad en un proveedor de almacenamiento en la nube",
+        "Datos de clientes (PII)","Externo - accidental/deliberado","Configuración insegura de bucket de almacenamiento del proveedor",3,
+        4, {financiero:4,operativo:2,regulatorio:5,estrategico:3,reputacional:5},
+        3, {financiero:2,operativo:1,regulatorio:3,estrategico:2,reputacional:3},
+        "Mitigar","Cláusulas contractuales de seguridad; Cifrado de datos; Auditoría a proveedor","[Oficial de Riesgo]","En tratamiento","2026-02-03","2026-06-01"),
+      r("R-003","Proceso","Cambio no autorizado en producción provoca interrupción del servicio",
+        "Interrupción del servicio de la plataforma de banca en línea por deficiencias en el proceso de gestión de cambios",
+        "Plataforma de banca en línea","Interno - accidental","Debilidad en el proceso de gestión de cambios (BAI06)",4,
+        4, {financiero:3,operativo:5,regulatorio:2,estrategico:2,reputacional:4},
+        2, {financiero:1,operativo:2,regulatorio:1,estrategico:1,reputacional:2},
+        "Mitigar","Proceso de aprobación de cambios; Ventanas controladas","[CIO]","En tratamiento","2026-01-20","2026-05-15"),
+      r("R-004","Activo","Falla eléctrica prolongada interrumpe la operación del centro de datos principal",
+        "Interrupción de la operación del centro de datos principal por insuficiente redundancia de continuidad eléctrica",
+        "Centro de datos principal","Ambiental","Ausencia de redundancia eléctrica suficiente (UPS/generador)",4,
+        3, {financiero:4,operativo:5,regulatorio:2,estrategico:2,reputacional:3},
+        1, {financiero:2,operativo:2,regulatorio:1,estrategico:1,reputacional:1},
+        "Mitigar","Plan de continuidad (DRP); Redundancia eléctrica; Pruebas periódicas","[CIO]","Identificado","2026-02-10","2026-02-10"),
+      r("R-005","Proceso","Explotación de vulnerabilidades críticas no remediadas en infraestructura expuesta a internet",
+        "Compromiso de la confidencialidad, integridad o disponibilidad de servicios expuestos a internet por vulnerabilidades críticas no remediadas oportunamente",
+        "Infraestructura expuesta a internet","Externo - deliberado","Falta de seguimiento formal a vulnerabilidades identificadas (debilidad en el proceso de gestión del riesgo, APO12)",3,
+        4, {financiero:3,operativo:3,regulatorio:3,estrategico:2,reputacional:3},
+        3, {financiero:2,operativo:2,regulatorio:3,estrategico:1,reputacional:2},
+        "Mitigar","Programa de gestión de vulnerabilidades","[CISO]","En tratamiento","2026-01-25","2026-05-20"),
+      r("R-006","Escenario","Phishing dirigido compromete credenciales de un administrador privilegiado",
+        "Uso no autorizado de cuentas de acceso privilegiado por compromiso de credenciales",
+        "Cuentas de acceso privilegiado","Externo - deliberado","Ausencia de autenticación multifactor en cuentas privilegiadas",4,
+        4, {financiero:4,operativo:4,regulatorio:3,estrategico:2,reputacional:4},
+        1, {financiero:2,operativo:2,regulatorio:1,estrategico:1,reputacional:2},
+        "Mitigar","Autenticación multifactor; Monitoreo de cuentas privilegiadas; Capacitación","[CISO]","En tratamiento","2026-02-05","2026-06-01"),
+      r("R-007","Activo","Sistema de pagos sin soporte del fabricante queda expuesto ante fallas o vulnerabilidades no remediables",
+        "Indisponibilidad o falla del sistema de pagos por obsolescencia tecnológica y falta de soporte del fabricante",
+        "Sistema de pagos","Externo - deliberado","Sistema de pagos obsoleto y sin soporte del fabricante, por ausencia de un proceso formal de renovación tecnológica planificada",4,
+        4, {financiero:4,operativo:4,regulatorio:3,estrategico:5,reputacional:3},
+        3, {financiero:2,operativo:3,regulatorio:2,estrategico:3,reputacional:2},
+        "Mitigar","Plan de modernización tecnológica; Controles compensatorios temporales","[CIO]","Identificado","2026-01-10","2026-01-10"),
+      r("R-008","Proveedor","Interrupción del servicio de un proveedor crítico de nube (IaaS)",
+        "Indisponibilidad de los servicios soportados en la nube por fallo de un proveedor crítico de infraestructura (IaaS)",
+        "Infraestructura en la nube","Externo","Ausencia de estrategia multi-proveedor o plan de contingencia",3,
+        3, {financiero:3,operativo:4,regulatorio:2,estrategico:3,reputacional:3},
+        2, {financiero:2,operativo:4,regulatorio:1,estrategico:2,reputacional:2},
+        "Transferir","Cláusulas de SLA; Plan de contingencia; Evaluación de proveedor alternativo","[Oficial de Riesgo]","Identificado","2026-02-14","2026-02-14"),
+      r("R-009","Escenario","Denegación de servicio (DDoS) afecta la disponibilidad del portal transaccional",
+        "Indisponibilidad del portal transaccional por saturación o ataque de denegación de servicio en el perímetro de red",
+        "Portal transaccional web","Externo - deliberado","Falta de protección anti-DDoS en el perímetro",4,
+        4, {financiero:2,operativo:4,regulatorio:1,estrategico:1,reputacional:3},
+        1, {financiero:1,operativo:1,regulatorio:1,estrategico:1,reputacional:1},
+        "Mitigar","Servicio de protección anti-DDoS; Plan de respuesta a incidentes","[CISO]","Cerrado","2025-11-01","2026-03-01"),
+      r("R-010","Activo","Corrupción de datos durante el proceso de respaldo nocturno",
+        "Pérdida de integridad o disponibilidad de la base de datos de clientes por deficiencias en el proceso de respaldo y restauración",
+        "Base de datos de clientes","Interno - accidental","Ausencia de verificación de integridad de respaldos",3,
+        3, {financiero:3,operativo:3,regulatorio:2,estrategico:1,reputacional:2},
+        1, {financiero:1,operativo:1,regulatorio:1,estrategico:1,reputacional:1},
+        "Mitigar","Verificación periódica de integridad de backups; Pruebas de restauración","[CIO]","En tratamiento","2026-02-20","2026-05-25")
+    ],
+    evolucion: [
+      {fecha:"2026-01", bajo:0, medio:3, alto:5, critico:2},
+      {fecha:"2026-02", bajo:0, medio:4, alto:5, critico:1},
+      {fecha:"2026-03", bajo:1, medio:4, alto:4, critico:1},
+      {fecha:"2026-04", bajo:1, medio:5, alto:4, critico:0},
+      {fecha:"2026-05", bajo:1, medio:5, alto:4, critico:0},
+      {fecha:"2026-06", bajo:1, medio:5, alto:4, critico:0}
+    ],
+    rtoTable: [
+      {id:"P-1", proceso:"Portal transaccional web", rtoHoras:2},
+      {id:"P-2", proceso:"Plataforma de banca en línea", rtoHoras:2},
+      {id:"P-3", proceso:"Core transaccional", rtoHoras:4},
+      {id:"P-4", proceso:"Sistema de pagos", rtoHoras:4},
+      {id:"P-5", proceso:"Centro de datos principal", rtoHoras:4},
+      {id:"P-6", proceso:"Base de datos de clientes", rtoHoras:6},
+      {id:"P-7", proceso:"Infraestructura en la nube", rtoHoras:8}
+    ],
+    incidentes: [
+      inc("I-001","Ransomware cifra volúmenes del core transaccional","Core transaccional","2026-03-04T01:00","2026-03-04T02:00","2026-03-04T08:00","Alto","Alta","Resuelto"),
+      inc("I-002","Caída del portal transaccional por saturación de red","Portal transaccional web","2026-04-11T09:00","2026-04-11T09:30","2026-04-11T12:30","Alto","Alta","Resuelto"),
+      inc("I-003","Error en proceso de respaldo nocturno de base de datos","Base de datos de clientes","2026-05-02T02:00","2026-05-02T04:00","2026-05-02T09:00","Medio","Media","Resuelto"),
+      inc("I-004","Intento de acceso no autorizado contenido por monitoreo","Cuentas de acceso privilegiado","2026-05-20T14:00","2026-05-20T15:00",null,"Bajo","Media","Abierto"),
+      inc("I-005","Interrupción breve del proveedor de nube IaaS","Infraestructura en la nube","2026-06-01T03:00","2026-06-01T03:12","2026-06-01T08:00","Medio","Alta","Resuelto")
+    ],
+    indicadores: [
+      kri("KRI-01","KRI","Vulnerabilidades críticas sin remediar (> 30 días)","Conteo de hallazgos críticos abiertos > 30 días","R-005","conteo",[6,5,4,3,2,6],2,5,"vulnerabilidad",["ene","feb","mar","abr","may","jun"],"Mensual","[CISO]"),
+      kri("KRI-02","KRI","% Riesgos Alto/Crítico sin plan de tratamiento","(Riesgos Alto/Crítico sin estrategia asignada ÷ total Alto/Crítico) × 100","R-001","pct",[30,25,20,15,10,18],10,25,"pct",["ene","feb","mar","abr","may","jun"],"Mensual","[Oficial de Riesgo]"),
+      kri("KPI-01","KPI","% Cambios en producción aprobados formalmente","(Cambios aprobados por comité ÷ total de cambios en producción) × 100","R-003","pct",[88,90,92,94,93,91],95,90,"pct",["ene","feb","mar","abr","may","jun"],"Mensual","[CIO]"),
+      kri("KPI-02","KPI","Cobertura de backups con prueba de restauración exitosa","(Backups restaurados exitosamente ÷ total de backups probados) × 100","R-010","pct",[95,96,97,98,99,99],98,90,"pct",["ene","feb","mar","abr","may","jun"],"Mensual","[CIO]"),
+      kri("KCI-01","KCI","% Controles clave evaluados como operando efectivamente","(Controles con evaluación 'Efectivo' ÷ total de controles clave evaluados) × 100","R-001","pct",[70,74,78,82,86,88],90,75,"pct",["ene","feb","mar","abr","may","jun"],"Trimestral","[CISO]"),
+      kri("KCI-02","KCI","Cobertura de MFA en cuentas privilegiadas","(Cuentas privilegiadas con MFA activo ÷ total de cuentas privilegiadas) × 100","R-006","pct",[75,80,85,90,95,97],100,90,"pct",["ene","feb","mar","abr","may","jun"],"Mensual","[CISO]")
+    ],
+    controles: [],
+    proveedores: [
+      prov("V-01","Proveedor de Infraestructura en la Nube (IaaS)",5,4,4,3,3,"[Oficial de Riesgo]","2026-01-10"),
+      prov("V-02","Proveedor de Almacenamiento en la Nube",4,5,3,2,2,"[CISO]","2025-11-20"),
+      prov("V-03","Proveedor de Servicios de Nómina (SaaS RRHH)",2,3,4,2,1,"[Oficial de Riesgo]","2025-09-05")
+    ]
+  };
+}
+// small helpers to build seed rows
+function r(id,cat,evento,desc,activo,amenaza,vuln,criticidad,probInh,impInh,probRes,impRes,estr,ctrl,owner,estado,fid,fur){
+  return {id:id,categoria:cat,evento:evento,descripcion:desc,activo:activo,amenaza:amenaza,vulnerabilidad:vuln,
+    criticidad:criticidad, probabilidad:probInh, impactos:impInh,
+    probabilidadResidual:probRes, impactosResidual:impRes,
+    estrategia:estr,controles:ctrl,
+    dueno:owner,estado:estado,fechaId:fid,fechaRev:fur};
+}
+function inc(id,desc,proceso,focu,fdet,fres,impacto,urgencia,estado){
+  return {id:id,descripcion:desc,proceso:proceso,fechaOcurrencia:focu,fechaDeteccion:fdet,fechaResolucion:fres,
+    impacto:impacto,urgencia:urgencia,estado:estado};
+}
+function kri(id,tipo,nombre,formula,riesgo,unidad,hist,umbralVerde,umbralRojo,dir,meses,freq,owner){
+  return {id:id,tipo:tipo,nombre:nombre,formula:formula,riesgoAsociado:riesgo,unidad:unidad,
+    historico:hist,umbralVerde:umbralVerde,umbralRojo:umbralRojo,meses:meses,frecuencia:freq,dueno:owner};
+}
+function prov(id,nombre,criticidad,sensibilidad,madurez,concentracion,subcontrat,owner,fecha){
+  return {id:id,nombre:nombre,criticidad:+criticidad,sensibilidad:+sensibilidad,madurez:+madurez,
+    concentracion:+concentracion,subcontrat:+subcontrat,dueno:owner,fecha:fecha};
+}
+
+function providerScore(p){
+  return p.criticidad*0.30 + p.sensibilidad*0.25 + p.madurez*0.25 + p.concentracion*0.10 + p.subcontrat*0.10;
+}
+function providerTier(score){
+  if(score>=4) return "Crítico";
+  if(score>=3) return "Alto";
+  if(score>=2) return "Medio";
+  return "Bajo";
+}
+
+/* indicator status: verde/amarillo/rojo depending on whether higher-is-better or lower-is-better */
+function kriStatus(k){
+  var val = k.historico[k.historico.length-1];
+  var higherBetter = k.umbralVerde >= k.umbralRojo; // e.g. umbralVerde=95 (>=), umbralRojo=90 (<) -> higher better
+  if(higherBetter){
+    if(val>=k.umbralVerde) return "verde";
+    if(val>=k.umbralRojo) return "amarillo";
+    return "rojo";
+  } else {
+    if(val<=k.umbralVerde) return "verde";
+    if(val<=k.umbralRojo) return "amarillo";
+    return "rojo";
+  }
+}
+
+/* =========================================================
+   STATE / PERSISTENCE — respaldado en Supabase (org_data), un documento JSON por organización.
+   ========================================================= */
+var SB = null;
+var STATE = null;
+var CURRENT_ORG_ID = null;
+var CURRENT_USER = null;
+var _saveTimer = null;
+
+async function loadState(){
+  var { data, error } = await SB.from("org_data").select("data").eq("org_id", CURRENT_ORG_ID).maybeSingle();
+  if(error){ console.error(error); toast("Error al cargar los datos: " + error.message); STATE = seedState(); deriveControlsIfNeeded(); return; }
+  if(data && data.data){
+    STATE = data.data;
+    deriveControlsIfNeeded();
+    return;
+  }
+  // primera vez de esta organización: sembrar con datos de ejemplo y crear el documento
+  STATE = seedState();
+  deriveControlsIfNeeded();
+  await SB.from("org_data").insert({ org_id: CURRENT_ORG_ID, data: STATE, updated_by: CURRENT_USER.id });
+}
+function saveState(){
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async function(){
+    var { error } = await SB.from("org_data")
+      .update({ data: STATE, updated_at: new Date().toISOString(), updated_by: CURRENT_USER.id })
+      .eq("org_id", CURRENT_ORG_ID);
+    if(error){ console.error(error); toast("No se pudo guardar: " + error.message); }
+  }, 400);
+}
+function deriveControlsIfNeeded(){
+  if(STATE.controles && STATE.controles.length) return;
+  var seen = {}; var list = [];
+  var effCycle = ["Efectivo","Efectivo","Parcialmente efectivo","Efectivo","No efectivo"];
+  var tipoCycle = ["Preventivo","Detectivo","Preventivo","Correctivo"];
+  var idx = 0;
+  STATE.risks.forEach(function(risk){
+    (risk.controles||"").split(";").forEach(function(cRaw){
+      var c = cRaw.trim();
+      if(!c || seen[c]) { if(seen[c]) seen[c].riesgos.push(risk.id); return; }
+      seen[c] = {nombre:c, riesgos:[risk.id]};
+      list.push(seen[c]);
+    });
+  });
+  STATE.controles = list.map(function(c,i){
+    return {
+      id:"C-"+String(i+1).padStart(3,"0"),
+      nombre:c.nombre,
+      riesgos:c.riesgos,
+      tipo:tipoCycle[i%tipoCycle.length],
+      efectividad:effCycle[i%effCycle.length],
+      ultimaPrueba: "2026-0"+((i%6)+1)+"-15"
+    };
+  });
+}
+
+/* =========================================================
+   UTIL
+   ========================================================= */
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m];}); }
+function fmtDT(v){
+  if(!v) return "—";
+  var d = new Date(v);
+  if(isNaN(d)) return v;
+  return d.toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric"}) + " " + d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+}
+function fmtD(v){
+  if(!v) return "—";
+  var d = new Date(v+"T00:00:00");
+  if(isNaN(d)) return v;
+  return d.toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric"});
+}
+function hoursBetween(a,b){
+  if(!a||!b) return null;
+  var da=new Date(a), db=new Date(b);
+  if(isNaN(da)||isNaN(db)) return null;
+  return (db-da)/36e5;
+}
+function round1(n){ return Math.round(n*10)/10; }
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._h);
+  toast._h = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+}
+function uid(prefix, arr){
+  var n = 1;
+  arr.forEach(function(x){ var m=/(\d+)$/.exec(x.id); if(m){ n=Math.max(n, +m[1]+1); } });
+  return prefix + "-" + String(n).padStart(3,"0");
+}
+
+/* incident computed fields */
+function incComputed(i){
+  var rtoRow = STATE.rtoTable.filter(function(x){ return x.proceso===i.proceso; })[0];
+  var rto = rtoRow ? rtoRow.rtoHoras : null;
+  var mttd = hoursBetween(i.fechaOcurrencia, i.fechaDeteccion);
+  var resolved = !!i.fechaResolucion;
+  var mttr = resolved ? hoursBetween(i.fechaDeteccion, i.fechaResolucion) : hoursBetween(i.fechaDeteccion, STATE.cutoffDate+"T"+ "23:59");
+  var severidad = (SEVERITY_MATRIX[i.impacto]||{})[i.urgencia] || "Medio";
+  var superaRTO = (rto!=null && mttr!=null) ? (mttr > rto) : false;
+  return {rto:rto, mttd:mttd, mttr:mttr, resolved:resolved, severidad:severidad, superaRTO:superaRTO};
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+var TABS = [
+  {id:"dashboard", label:"Panel General", icon:"◆"},
+  {id:"identificar", label:"Identificar", icon:"①"},
+  {id:"evaluar", label:"Evaluar", icon:"②"},
+  {id:"tratar", label:"Tratar", icon:"③"},
+  {id:"controlar", label:"Controlar", icon:"④"},
+  {id:"monitorear", label:"Monitorear", icon:"⑤"},
+  {id:"incidentes", label:"Incidentes", icon:"⑥"},
+  {id:"informar", label:"Informar y Reportar", icon:"⑦"},
+  {id:"proveedores", label:"Proveedores", icon:"⑧"}
+];
+var ACTIVE_TAB = "dashboard";
+
+function renderTabs(){
+  var openIncidents = STATE.incidentes.filter(function(i){ return incComputed(i).superaRTO; }).length;
+  var over = STATE.risks.filter(function(x){ return riskScoreFor(x,"residual") > TOLERANCE_LEVELS[STATE.toleranceLevel]; }).length;
+  var html = TABS.map(function(t){
+    var badge = "";
+    if(t.id==="dashboard" && (over>0)) badge = '<span class="badge">'+over+'</span>';
+    if(t.id==="incidentes" && openIncidents>0) badge = '<span class="badge">'+openIncidents+'</span>';
+    return '<button data-tab="'+t.id+'" class="'+(ACTIVE_TAB===t.id?"active":"")+'"><span class="ic">'+t.icon+'</span>'+esc(t.label)+badge+'</button>';
+  }).join("");
+  var nav = document.getElementById("tabs");
+  nav.innerHTML = html;
+  nav.querySelectorAll("button").forEach(function(b){
+    b.addEventListener("click", function(){ ACTIVE_TAB = b.getAttribute("data-tab"); renderAll(); });
+  });
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function sparkSVG(values, opts){
+  opts = opts || {};
+  var w = opts.w||220, h=opts.h||52, pad=4;
+  var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+  if(min===max){ min -= 1; max += 1; }
+  var stepX = (w-pad*2)/(values.length-1);
+  var pts = values.map(function(v,i){
+    var x = pad + i*stepX;
+    var y = h - pad - ( (v-min)/(max-min) ) * (h-pad*2);
+    return [x,y];
+  });
+  var line = pts.map(function(p,i){ return (i===0?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1); }).join(" ");
+  var area = line + " L"+pts[pts.length-1][0].toFixed(1)+","+(h-pad)+" L"+pts[0][0].toFixed(1)+","+(h-pad)+" Z";
+  var color = opts.color || "var(--accent)";
+  var last = pts[pts.length-1];
+  return '<svg class="spark" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="tendencia">'+
+    '<line x1="'+pad+'" y1="'+(h-pad)+'" x2="'+(w-pad)+'" y2="'+(h-pad)+'" stroke="var(--border)" stroke-width="1"/>'+
+    '<path d="'+area+'" fill="'+color+'" opacity="0.14"></path>'+
+    '<path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2"></path>'+
+    '<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="3" fill="'+color+'"></circle>'+
+  '</svg>';
+}
+
+function stackedAreaSVG(evolucion){
+  var w=640, h=190, pad=30;
+  var maxTotal = Math.max.apply(null, evolucion.map(function(e){ return e.bajo+e.medio+e.alto+e.critico; }));
+  maxTotal = Math.max(maxTotal, 1);
+  var n = evolucion.length;
+  var stepX = (w-pad*1.5-20)/(n-1);
+  var keys = ["bajo","medio","alto","critico"];
+  var colors = {bajo:"var(--risk-bajo)",medio:"var(--risk-medio)",alto:"var(--risk-alto)",critico:"var(--risk-critico)"};
+  function yOf(v){ return h-pad - (v/maxTotal)*(h-pad-14); }
+  var layers = {}; keys.forEach(function(k){layers[k]=[];});
+  evolucion.forEach(function(e,i){
+    var acc=0;
+    keys.forEach(function(k){
+      var x = pad + i*stepX;
+      var y0 = yOf(acc); acc += e[k]; var y1 = yOf(acc);
+      layers[k].push([x,y0,y1]);
+    });
+  });
+  var paths = keys.map(function(k){
+    var top = layers[k].map(function(p,i){ return (i===0?"M":"L")+p[0].toFixed(1)+","+p[2].toFixed(1); }).join(" ");
+    var bottom = layers[k].slice().reverse().map(function(p){ return "L"+p[0].toFixed(1)+","+p[1].toFixed(1); }).join(" ");
+    return '<path d="'+top+" "+bottom+' Z" fill="'+colors[k]+'" opacity="0.85"></path>';
+  }).join("");
+  var xlabels = evolucion.map(function(e,i){
+    var x = pad + i*stepX;
+    return '<text x="'+x.toFixed(1)+'" y="'+(h-8)+'" font-size="10" fill="var(--text-muted)" text-anchor="middle">'+e.fecha.slice(5)+'</text>';
+  }).join("");
+  return '<svg width="100%" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="evolución de riesgos por nivel">'+
+    '<line x1="'+pad+'" y1="'+(h-pad)+'" x2="'+(w-16)+'" y2="'+(h-pad)+'" stroke="var(--border)" stroke-width="1"/>'+
+    paths + xlabels +
+  '</svg>';
+}
+
+/* ---- Heatmap widget: dimensión de impacto seleccionable, vista inherente/residual, filtros ---- */
+var HEATMAP_UI = {
+  dimension:"financiero", vista:"residual",
+  proceso:"Todos", amenaza:"Todos", vulnerabilidad:"Todos",
+  selectedKey:null
+};
+function distinctValues(risks, field){
+  var seen = {}; var out = [];
+  risks.forEach(function(x){ var v=x[field]; if(v && !seen[v]){ seen[v]=1; out.push(v); } });
+  out.sort();
+  return out;
+}
+function heatmapFilteredRisks(){
+  return STATE.risks.filter(function(x){
+    if(HEATMAP_UI.proceso!=="Todos" && x.activo!==HEATMAP_UI.proceso) return false;
+    if(HEATMAP_UI.amenaza!=="Todos" && x.amenaza!==HEATMAP_UI.amenaza) return false;
+    if(HEATMAP_UI.vulnerabilidad!=="Todos" && x.vulnerabilidad!==HEATMAP_UI.vulnerabilidad) return false;
+    return true;
+  });
+}
+function heatmapWidgetHTML(){
+  var vista = HEATMAP_UI.vista;
+  var dim = HEATMAP_UI.dimension;
+  var risks = heatmapFilteredRisks();
+  var threshold = TOLERANCE_LEVELS[STATE.toleranceLevel];
+  function probOf(x){ return vista==="inherente" ? x.probabilidad : x.probabilidadResidual; }
+  function impOf(x){ return (vista==="inherente" ? x.impactos : x.impactosResidual)[dim]; }
+  var cells = {};
+  risks.forEach(function(x){
+    var key = probOf(x)+"_"+impOf(x);
+    cells[key] = cells[key] || [];
+    cells[key].push(x);
+  });
+
+  var toolbar = '<div class="heatmap-toolbar">'+
+    '<div class="dim-tabs">'+DIMENSIONES.map(function(d){
+      return '<button class="dim-tab'+(d.key===dim?" active":"")+'" data-hdim="'+d.key+'">'+esc(d.label)+'</button>';
+    }).join("")+'</div>'+
+    '<div class="vista-toggle">'+
+      '<button data-hvista="residual" class="'+(vista==="residual"?"active":"")+'">Residual</button>'+
+      '<button data-hvista="inherente" class="'+(vista==="inherente"?"active":"")+'">Inherente</button>'+
+    '</div>'+
+  '</div>';
+
+  var procesos = distinctValues(STATE.risks,"activo");
+  var amenazas = distinctValues(STATE.risks,"amenaza");
+  var vulnerabilidades = distinctValues(STATE.risks,"vulnerabilidad");
+  var filters = '<div class="heatmap-filters">'+
+    '<div><span class="flabel">Proceso / activo tecnológico</span><select data-hf="proceso">'+
+      '<option'+(HEATMAP_UI.proceso==="Todos"?" selected":"")+'>Todos</option>'+
+      procesos.map(function(v){ return '<option'+(v===HEATMAP_UI.proceso?" selected":"")+'>'+esc(v)+'</option>'; }).join("")+
+    '</select></div>'+
+    '<div><span class="flabel">Amenaza / evento potencial</span><select data-hf="amenaza">'+
+      '<option'+(HEATMAP_UI.amenaza==="Todos"?" selected":"")+'>Todos</option>'+
+      amenazas.map(function(v){ return '<option'+(v===HEATMAP_UI.amenaza?" selected":"")+'>'+esc(v)+'</option>'; }).join("")+
+    '</select></div>'+
+    '<div><span class="flabel">Vulnerabilidad explotada</span><select data-hf="vulnerabilidad">'+
+      '<option'+(HEATMAP_UI.vulnerabilidad==="Todos"?" selected":"")+'>Todos</option>'+
+      vulnerabilidades.map(function(v){ return '<option'+(v===HEATMAP_UI.vulnerabilidad?" selected":"")+'>'+esc(v)+'</option>'; }).join("")+
+    '</select></div>'+
+  '</div>';
+
+  var colHeads = IMPACT_SCALE.map(function(s){
+    return '<th class="colhead">'+s.v+'. '+esc(s.label)+'<span class="sub">'+esc(s.desc)+'</span></th>';
+  }).join("");
+  var bodyRows = "";
+  for(var p=5; p>=1; p--){
+    var rowCells = "";
+    for(var i=1; i<=5; i++){
+      var group = cells[p+"_"+i] || [];
+      var cls = HEAT_BAND[p+"_"+i];
+      var over = group.filter(function(g){ return riskScoreFor(g,vista) > threshold; }).length;
+      var key = p+"_"+i;
+      var selected = HEATMAP_UI.selectedKey===key ? " selected" : "";
+      rowCells += '<td class="heat-td'+selected+'" style="background:var(--risk-'+cls+')" data-hcell="'+key+'" title="'+esc(group.map(function(g){return g.id;}).join(", "))+'">'+
+        '<span class="count-badge">'+group.length+'</span>'+
+        (over? '<span class="warn-badge">⚠'+(over>1?over:"")+'</span>':'')+
+      '</td>';
+    }
+    var probMeta = PROB_SCALE[p-1];
+    bodyRows += '<tr><th class="rowhead">'+probMeta.v+'. '+esc(probMeta.label)+'<span class="sub">'+esc(probMeta.desc)+'</span></th>'+rowCells+'</tr>';
+  }
+  var table = '<div class="tablewrap"><table class="heatmap-table">'+
+    '<thead><tr><th class="corner">Frecuencia<span class="sub">Probabilidad</span></th>'+colHeads+'</tr></thead>'+
+    '<tbody>'+bodyRows+'</tbody>'+
+  '</table></div>';
+
+  var detail = "";
+  if(HEATMAP_UI.selectedKey){
+    var parts = HEATMAP_UI.selectedKey.split("_");
+    var selGroup = cells[HEATMAP_UI.selectedKey] || [];
+    detail = '<div class="heatmap-detail">'+
+      '<div class="hdr"><span>Probabilidad '+parts[0]+' × '+DIMENSIONES.filter(function(d){return d.key===dim;})[0].label+' '+parts[1]+' ('+vista+') — '+selGroup.length+' riesgo(s)</span><button data-hclose="1">Cerrar ✕</button></div>'+
+      (selGroup.length ? selGroup.map(function(g){
+        return '<div class="item"><b>'+esc(g.id)+'</b> · '+esc(g.descripcion)+'<br><span class="muted small">'+esc(g.activo)+' · Amenaza: '+esc(g.amenaza)+' · Vulnerabilidad: '+esc(g.vulnerabilidad)+'</span></div>';
+      }).join("") : '<div class="item muted">Sin riesgos en esta celda con los filtros actuales.</div>')+
+    '</div>';
+  }
+
+  return '<div class="heatmap-widget">'+toolbar+filters+table+detail+
+    '<div class="muted small" style="margin-top:8px;">Cada celda: riesgos identificados en la vista y dimensión seleccionadas · ⚠ = supera la tolerancia (' +STATE.toleranceLevel+ ') · click en una celda para ver el detalle.</div>'+
+  '</div>';
+}
+function bindHeatmapEvents(){
+  document.querySelectorAll("[data-hdim]").forEach(function(b){
+    b.addEventListener("click", function(){ HEATMAP_UI.dimension = b.getAttribute("data-hdim"); HEATMAP_UI.selectedKey=null; renderMain(); });
+  });
+  document.querySelectorAll("[data-hvista]").forEach(function(b){
+    b.addEventListener("click", function(){ HEATMAP_UI.vista = b.getAttribute("data-hvista"); HEATMAP_UI.selectedKey=null; renderMain(); });
+  });
+  document.querySelectorAll("[data-hf]").forEach(function(sel){
+    sel.addEventListener("change", function(){ HEATMAP_UI[sel.getAttribute("data-hf")] = sel.value; HEATMAP_UI.selectedKey=null; renderMain(); });
+  });
+  document.querySelectorAll("[data-hcell]").forEach(function(td){
+    td.addEventListener("click", function(){
+      var key = td.getAttribute("data-hcell");
+      HEATMAP_UI.selectedKey = (HEATMAP_UI.selectedKey===key) ? null : key;
+      renderMain();
+    });
+  });
+  var closeBtn = document.querySelector("[data-hclose]");
+  if(closeBtn) closeBtn.addEventListener("click", function(){ HEATMAP_UI.selectedKey=null; renderMain(); });
+}
+
+function viewDashboard(){
+  var risks = STATE.risks;
+  var scored = risks.map(function(x){ return {r:x, score:riskScoreFor(x,"residual")}; });
+  var threshold = TOLERANCE_LEVELS[STATE.toleranceLevel];
+  var overTol = scored.filter(function(x){ return x.score>threshold; });
+  var byClass = {Bajo:0,Medio:0,Alto:0,"Crítico":0};
+  scored.forEach(function(x){ byClass[riskClass(x.score)]++; });
+  var incidentsComputed = STATE.incidentes.map(function(i){ return {i:i, c:incComputed(i)}; });
+  var overRTO = incidentsComputed.filter(function(x){ return x.c.superaRTO; });
+  var openInc = STATE.incidentes.filter(function(i){ return i.estado==="Abierto"; });
+  var redIndicators = STATE.indicadores.filter(function(k){ return kriStatus(k)==="rojo"; });
+  var amberIndicators = STATE.indicadores.filter(function(k){ return kriStatus(k)==="amarillo"; });
+
+  var topRisks = scored.slice().sort(function(a,b){return b.score-a.score;}).slice(0,5);
+
+  return ''+
+  '<div class="view-title"><h2>Panel General</h2><span class="muted small">Corte: '+fmtD(STATE.cutoffDate)+' · Tolerancia máxima: <b>'+STATE.toleranceLevel+'</b></span></div>'+
+  '<div class="view-sub">Vista consolidada del ciclo de gestión del riesgo tecnológico: identificación, evaluación, tratamiento, control y monitoreo, conforme a la Metodología CPGRTI.</div>'+
+
+  '<div class="grid cols-4" style="margin-bottom:16px;">'+
+    statCard("Riesgos que superan tolerancia", overTol.length, overTol.length? "de "+risks.length+" riesgos totales":"dentro de niveles aceptados", overTol.length>0)+
+    statCard("Incidentes que superan el RTO", overRTO.length, overRTO.length? "requieren revisión de continuidad":"ningún incidente supera su RTO", overRTO.length>0)+
+    statCard("Indicadores en zona roja", redIndicators.length, amberIndicators.length+" en zona amarilla", redIndicators.length>0)+
+    statCard("Incidentes abiertos", openInc.length, openInc.length? "en curso de atención":"sin incidentes abiertos", openInc.length>0)+
+  '</div>'+
+
+  '<div class="grid cols-3" style="align-items:start;">'+
+    '<div class="card" style="grid-column:span 2;">'+
+      '<h3>Mapa de calificación de riesgos <span class="hint">Frecuencia × Impacto</span></h3>'+
+      heatmapWidgetHTML()+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Riesgos por nivel</h3>'+
+      classBars(byClass)+
+    '</div>'+
+  '</div>'+
+
+  '<div class="grid cols-3" style="margin-top:16px; align-items:start;">'+
+    '<div class="card" style="grid-column:span 2;">'+
+      '<h3>Evolución del riesgo tecnológico <span class="hint">conteo por nivel, últimos '+STATE.evolucion.length+' cortes</span></h3>'+
+      stackedAreaSVG(STATE.evolucion)+
+      legendRow()+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Top 5 riesgos por nivel</h3>'+
+      '<div>'+topRisks.map(function(x){
+        return '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);">'+
+          '<div class="stripe '+classKey(riskClass(x.score))+'"></div>'+
+          '<div style="flex:1;min-width:0;">'+
+            '<div style="font-weight:700;font-size:12.5px;">'+esc(x.r.id)+' · '+esc(x.r.activo)+'</div>'+
+            '<div class="muted small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(x.r.descripcion)+'</div>'+
+          '</div>'+
+          '<span class="pill '+classKey(riskClass(x.score))+'">'+round1(x.score)+'</span>'+
+        '</div>';
+      }).join("")+'</div>'+
+    '</div>'+
+  '</div>'+
+
+  '<div class="grid cols-2" style="margin-top:16px;">'+
+    '<div class="card">'+
+      '<h3>KRI · KPI · KCI <span class="hint">último valor vs. umbral</span></h3>'+
+      STATE.indicadores.map(indicatorRow).join("")+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Incidentes recientes <span class="hint">MTTR vs. RTO del proceso</span></h3>'+
+      STATE.incidentes.slice().sort(function(a,b){return new Date(b.fechaOcurrencia)-new Date(a.fechaOcurrencia);}).slice(0,5).map(function(i){
+        var c = incComputed(i);
+        return '<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
+          '<span class="pill '+classKey(c.severidad==="Crítico"?"critico":c.severidad.toLowerCase())+'">'+esc(c.severidad)+'</span>'+
+          '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(i.descripcion)+'</div>'+
+          '<div class="muted small">'+esc(i.proceso)+' · MTTR '+(c.mttr!=null?round1(c.mttr)+"h":"—")+' / RTO '+(c.rto!=null?c.rto+"h":"N/D")+'</div></div>'+
+          (c.superaRTO? '<span class="pill critico">Supera RTO</span>' : '<span class="pill neutro">'+(i.estado)+'</span>')+
+        '</div>';
+      }).join("")+
+    '</div>'+
+  '</div>';
+}
+
+function statCard(label,value,sub,warn){
+  return '<div class="card stat'+(warn?" warn":"")+'"><div class="label">'+esc(label)+'</div><div class="value num">'+value+'</div><div class="sub">'+esc(sub)+'</div></div>';
+}
+function classBars(byClass){
+  var order=[["Crítico","critico"],["Alto","alto"],["Medio","medio"],["Bajo","bajo"]];
+  var total = byClass.Bajo+byClass.Medio+byClass.Alto+byClass["Crítico"] || 1;
+  return order.map(function(o){
+    var v = byClass[o[0]];
+    var pct = Math.round(v/total*100);
+    return '<div style="margin-bottom:10px;">'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span class="pill '+o[1]+'">'+o[0]+'</span><span class="num">'+v+'</span></div>'+
+      '<div class="procbar"><div style="width:'+pct+'%;background:var(--risk-'+o[1]+')"></div></div>'+
+    '</div>';
+  }).join("");
+}
+function legendRow(){
+  return '<div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">'+
+    ["bajo","medio","alto","critico"].map(function(k){
+      var label = {bajo:"Bajo",medio:"Medio",alto:"Alto",critico:"Crítico"}[k];
+      return '<span class="small muted" style="display:flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--risk-'+k+');display:inline-block;"></span>'+label+'</span>';
+    }).join("")+'</div>';
+}
+function indicatorRow(k){
+  var status = kriStatus(k);
+  var val = k.historico[k.historico.length-1];
+  var suffix = k.unidad==="pct" ? "%" : "";
+  return '<div class="kri-row">'+
+    '<span class="pill '+status+'">'+status.toUpperCase()+'</span>'+
+    '<div class="kri-meta"><div class="name">'+esc(k.nombre)+'</div><div class="type">'+esc(k.tipo)+' · '+esc(k.frecuencia)+' · dueño '+esc(k.dueno)+'</div></div>'+
+    sparkSVG(k.historico,{w:110,h:34,color:status==="rojo"?"var(--risk-critico)":status==="amarillo"?"var(--risk-medio)":"var(--risk-bajo)"})+
+    '<div class="kri-val">'+val+suffix+'</div>'+
+  '</div>';
+}
+
+/* =========================================================
+   IDENTIFICAR
+   ========================================================= */
+function viewIdentificar(){
+  var rows = STATE.risks.map(function(x){
+    return '<tr>'+
+      '<td class="num">'+esc(x.id)+'</td>'+
+      '<td><span class="pill neutro">'+esc(x.categoria)+'</span></td>'+
+      '<td style="max-width:260px;">'+esc(x.evento)+'</td>'+
+      '<td style="max-width:260px;">'+esc(x.descripcion)+'</td>'+
+      '<td>'+esc(x.activo)+'</td>'+
+      '<td>'+esc(x.amenaza)+'</td>'+
+      '<td style="max-width:200px;">'+esc(x.vulnerabilidad)+'</td>'+
+      '<td>'+fmtD(x.fechaId)+'</td>'+
+      '<td><button class="rowlink" data-edit-risk="'+x.id+'">Editar</button></td>'+
+    '</tr>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>① Identificación de riesgos</h2><button class="btn" id="newRiskBtn">+ Nuevo riesgo</button></div>'+
+  '<div class="view-sub">Registro de riesgos tecnológicos mediante enfoques por activos, procesos, escenarios y proveedores (Módulo 2 — COBIT for Risk / ISO 27005 / ITIL v4).</div>'+
+  '<div class="section-note"><b>Evento tecnológico</b> ≠ <b>Riesgo</b>: el evento es la narrativa de cómo una amenaza podría explotar una vulnerabilidad; el riesgo es la situación potencial de afectación al negocio que resultaría de ello (COBIT for Risk / ITIL) — deben registrarse por separado.</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>ID</th><th>Categoría</th><th>Evento tecnológico</th><th>Riesgo (impacto potencial)</th><th>Activo</th><th>Actor de amenaza</th><th>Vulnerabilidad</th><th>Identificado</th><th></th></tr></thead><tbody>'+
+  (rows || emptyRow(9,"Aún no hay riesgos identificados."))+
+  '</tbody></table></div>';
+}
+
+/* =========================================================
+   EVALUAR
+   ========================================================= */
+function viewEvaluar(){
+  var rows = STATE.risks.slice().sort(function(a,b){
+    return riskScoreFor(b,"residual")-riskScoreFor(a,"residual");
+  }).map(function(x){
+    var scoreInh = riskScoreFor(x,"inherente");
+    var scoreRes = riskScoreFor(x,"residual");
+    var cls = riskClass(scoreRes);
+    var over = scoreRes > TOLERANCE_LEVELS[STATE.toleranceLevel];
+    return '<tr>'+
+      '<td class="num">'+esc(x.id)+'</td>'+
+      '<td style="max-width:240px;">'+esc(x.descripcion)+'</td>'+
+      '<td class="num">'+x.probabilidad+'</td>'+
+      '<td class="num">'+maxImpact(x.impactos)+'</td>'+
+      '<td class="num">'+round1(scoreInh)+'</td>'+
+      '<td class="num">'+x.probabilidadResidual+'</td>'+
+      '<td class="num">'+maxImpact(x.impactosResidual)+'</td>'+
+      '<td class="num">'+x.criticidad+'</td>'+
+      '<td class="num">'+round1(scoreRes)+'</td>'+
+      '<td><span class="pill '+classKey(cls)+'">'+cls+'</span></td>'+
+      '<td>'+(over? '<span class="pill critico">Supera</span>' : '<span class="pill verde">Dentro</span>')+'</td>'+
+      '<td><button class="rowlink" data-edit-risk="'+x.id+'">Evaluar</button></td>'+
+    '</tr>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>② Evaluación del riesgo</h2></div>'+
+  '<div class="view-sub">Cálculo semicuantitativo: <b>Riesgo = Probabilidad × Impacto × (Criticidad del Activo ÷ 4)</b>. El impacto corresponde al mayor valor entre las dimensiones financiera, operativa/continuidad, regulatoria, estratégica y reputacional. Rangos: 1–5 Bajo · 6–10 Medio · 11–18 Alto · 19–25 Crítico.</div>'+
+  '<div class="grid cols-3" style="margin-bottom:16px;">'+
+    scaleCard("Probabilidad", PROB_SCALE)+
+    scaleCard("Impacto (por dimensión)", IMPACT_SCALE)+
+    scaleCard("Criticidad del activo", CRIT_SCALE)+
+  '</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>ID</th><th>Riesgo (impacto potencial)</th>'+
+  '<th class="num">P inh.</th><th class="num">I máx. inh.</th><th class="num">Puntaje inh.</th>'+
+  '<th class="num">P res.</th><th class="num">I máx. res.</th><th class="num">C</th><th class="num">Puntaje res.</th>'+
+  '<th>Nivel (residual)</th><th>Tolerancia</th><th></th></tr></thead><tbody>'+
+  (rows || emptyRow(12,"No hay riesgos para evaluar."))+
+  '</tbody></table></div>';
+}
+function scaleCard(title, scale){
+  return '<div class="card"><h3>'+title+'</h3>'+
+    scale.map(function(s){ return '<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border);"><b class="num">'+s.v+'</b> · '+esc(s.label)+(s.desc?' <span class="muted">— '+esc(s.desc)+'</span>':'')+'</div>'; }).join("")+
+  '</div>';
+}
+
+/* =========================================================
+   TRATAR
+   ========================================================= */
+function viewTratar(){
+  var rows = STATE.risks.slice().sort(function(a,b){
+    return riskScoreFor(b,"inherente")-riskScoreFor(a,"inherente");
+  }).map(function(x){
+    var clsInh = riskClass(riskScoreFor(x,"inherente"));
+    var clsRes = riskClass(riskScoreFor(x,"residual"));
+    return '<tr>'+
+      '<td class="num">'+esc(x.id)+'</td>'+
+      '<td><span class="pill '+classKey(clsInh)+'">'+clsInh+'</span></td>'+
+      '<td style="max-width:200px;">'+esc(x.descripcion)+'</td>'+
+      '<td><span class="pill neutro">'+esc(x.estrategia)+'</span></td>'+
+      '<td style="max-width:240px;">'+esc(x.controles)+'</td>'+
+      '<td><span class="pill '+classKey(clsRes)+'">'+clsRes+'</span></td>'+
+      '<td>'+esc(x.dueno)+'</td>'+
+      '<td><span class="pill neutro">'+esc(x.estado)+'</span></td>'+
+      '<td><button class="rowlink" data-edit-risk="'+x.id+'">Actualizar</button></td>'+
+    '</tr>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>③ Tratamiento del riesgo</h2></div>'+
+  '<div class="view-sub">Estrategia y controles asociados a cada riesgo. El nivel residual se calcula a partir de la probabilidad e impacto estimados después de aplicar los controles.</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>ID</th><th>Nivel inherente</th><th>Riesgo (impacto potencial)</th><th>Estrategia</th><th>Controles</th><th>Nivel residual</th><th>Dueño</th><th>Estado</th><th></th></tr></thead><tbody>'+
+  (rows || emptyRow(9,"No hay riesgos para tratar."))+
+  '</tbody></table></div>';
+}
+
+/* =========================================================
+   CONTROLAR
+   ========================================================= */
+function effBadge(e){
+  var map = {"Efectivo":"verde","Parcialmente efectivo":"amarillo","No efectivo":"rojo"};
+  return '<span class="pill '+map[e]+'">'+esc(e)+'</span>';
+}
+function viewControlar(){
+  var rows = STATE.controles.map(function(c){
+    return '<tr>'+
+      '<td class="num">'+esc(c.id)+'</td>'+
+      '<td>'+esc(c.nombre)+'</td>'+
+      '<td><span class="pill neutro">'+esc(c.tipo)+'</span></td>'+
+      '<td>'+c.riesgos.join(", ")+'</td>'+
+      '<td>'+effBadge(c.efectividad)+'</td>'+
+      '<td>'+fmtD(c.ultimaPrueba)+'</td>'+
+    '</tr>';
+  }).join("");
+  var rto = STATE.rtoTable.map(function(p){
+    return '<tr><td class="num">'+esc(p.id)+'</td><td>'+esc(p.proceso)+'</td><td class="num">'+p.rtoHoras+' h</td></tr>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>④ Control del riesgo</h2></div>'+
+  '<div class="view-sub">Catálogo de controles vinculados a los riesgos registrados, con su tipo, efectividad evaluada (KCI) y última prueba.</div>'+
+  '<div class="tablewrap" style="margin-bottom:22px;"><table><thead><tr><th>ID</th><th>Control</th><th>Tipo</th><th>Riesgos vinculados</th><th>Efectividad</th><th>Última prueba</th></tr></thead><tbody>'+
+  (rows || emptyRow(6,"No hay controles registrados."))+
+  '</tbody></table></div>'+
+  '<div class="view-title"><h2 style="font-size:17px;">Objetivos de tiempo de recuperación (RTO) por proceso crítico</h2></div>'+
+  '<div class="view-sub">Referencia utilizada para determinar si un incidente tecnológico supera el tiempo de recuperación definido por continuidad de negocio.</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>ID</th><th>Proceso / Activo crítico</th><th class="num">RTO</th></tr></thead><tbody>'+rto+'</tbody></table></div>';
+}
+
+/* =========================================================
+   MONITOREAR
+   ========================================================= */
+function viewMonitorear(){
+  var groups = [["KRI","Indicadores clave de riesgo"],["KPI","Indicadores clave de desempeño"],["KCI","Indicadores clave de control"]];
+  var body = groups.map(function(g){
+    var items = STATE.indicadores.filter(function(k){ return k.tipo===g[0]; });
+    if(!items.length) return "";
+    return '<div class="card" style="margin-bottom:14px;"><h3>'+g[1]+' <span class="hint">'+g[0]+'</span></h3>'+
+      items.map(function(k){
+        var status = kriStatus(k);
+        var val = k.historico[k.historico.length-1];
+        var suffix = k.unidad==="pct"?"%":"";
+        return '<div class="kri-row"><span class="pill '+status+'">'+status.toUpperCase()+'</span>'+
+          '<div class="kri-meta"><div class="name">'+esc(k.nombre)+'</div>'+
+          '<div class="type">'+esc(k.formula)+'</div>'+
+          '<div class="type">Riesgo asociado '+esc(k.riesgoAsociado)+' · '+esc(k.frecuencia)+' · dueño '+esc(k.dueno)+' · umbral verde '+k.umbralVerde+suffix+' / rojo '+k.umbralRojo+suffix+'</div></div>'+
+          sparkSVG(k.historico,{w:130,h:38,color:status==="rojo"?"var(--risk-critico)":status==="amarillo"?"var(--risk-medio)":"var(--risk-bajo)"})+
+          '<div class="kri-val">'+val+suffix+'</div>'+
+        '</div>';
+      }).join("")+
+    '</div>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>⑤ Monitoreo del riesgo</h2></div>'+
+  '<div class="view-sub">Seguimiento periódico de indicadores clave de riesgo (KRI), desempeño (KPI) y control (KCI), y de la evolución agregada del perfil de riesgo.</div>'+
+  '<div class="card" style="margin-bottom:16px;"><h3>Evolución del riesgo por nivel</h3>'+stackedAreaSVG(STATE.evolucion)+legendRow()+'</div>'+
+  '<div class="card" style="margin-bottom:16px;"><h3>Mapa de calificación de riesgos <span class="hint">Frecuencia × Impacto</span></h3>'+heatmapWidgetHTML()+'</div>'+
+  body;
+}
+
+/* =========================================================
+   INCIDENTES
+   ========================================================= */
+function sevPillClass(s){ return classKey(s==="Crítico"?"Crítico":s); }
+function viewIncidentes(){
+  var rows = STATE.incidentes.slice().sort(function(a,b){return new Date(b.fechaOcurrencia)-new Date(a.fechaOcurrencia);}).map(function(i){
+    var c = incComputed(i);
+    return '<tr>'+
+      '<td class="num">'+esc(i.id)+'</td>'+
+      '<td style="max-width:240px;">'+esc(i.descripcion)+'</td>'+
+      '<td>'+esc(i.proceso)+'</td>'+
+      '<td><span class="pill '+sevPillClass(c.severidad)+'">'+esc(c.severidad)+'</span></td>'+
+      '<td class="num">'+(c.mttd!=null?round1(c.mttd)+"h":"—")+'</td>'+
+      '<td class="num">'+(c.mttr!=null?round1(c.mttr)+"h"+(c.resolved?"":" (en curso)"):"—")+'</td>'+
+      '<td class="num">'+(c.rto!=null?c.rto+"h":"N/D")+'</td>'+
+      '<td>'+(c.superaRTO? '<span class="pill critico">Supera RTO</span>' : '<span class="pill verde">Dentro de RTO</span>')+'</td>'+
+      '<td><span class="pill neutro">'+esc(i.estado)+'</span></td>'+
+      '<td><button class="rowlink" data-edit-inc="'+i.id+'">Editar</button></td>'+
+    '</tr>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>⑥ Gestión de incidentes tecnológicos</h2><button class="btn" id="newIncBtn">+ Nuevo incidente</button></div>'+
+  '<div class="view-sub">Clasificación por severidad (impacto × urgencia), tiempos MTTD/MTTR y comparación contra el RTO del proceso o activo afectado.</div>'+
+  '<div class="grid cols-2" style="margin-bottom:16px;">'+
+    '<div class="card"><h3>Matriz de severidad</h3>'+severityMatrixTable()+'</div>'+
+    '<div class="card"><h3>Tiempo de respuesta objetivo</h3>'+
+      Object.keys(RESPONSE_TARGET).map(function(s){
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span class="pill '+sevPillClass(s)+'">'+s+'</span><span class="small">'+RESPONSE_TARGET[s]+'</span></div>';
+      }).join("")+
+    '</div>'+
+  '</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>ID</th><th>Descripción</th><th>Proceso/Activo</th><th>Severidad</th><th class="num">MTTD</th><th class="num">MTTR</th><th class="num">RTO</th><th>Cumplimiento</th><th>Estado</th><th></th></tr></thead><tbody>'+
+  (rows || emptyRow(10,"No hay incidentes registrados."))+
+  '</tbody></table></div>';
+}
+function severityMatrixTable(){
+  var impacts = ["Alto","Medio","Bajo"]; var urg=["Baja","Media","Alta"];
+  var head = '<tr><th></th>'+urg.map(function(u){return '<th class="num">Urgencia '+u+'</th>';}).join("")+'</tr>';
+  var body = impacts.map(function(im){
+    return '<tr><th>Impacto '+im+'</th>'+urg.map(function(u){
+      var s = SEVERITY_MATRIX[im][u];
+      return '<td class="num"><span class="pill '+sevPillClass(s)+'">'+s+'</span></td>';
+    }).join("")+'</tr>';
+  }).join("");
+  return '<div class="tablewrap"><table>'+head+body+'</table></div>';
+}
+
+/* =========================================================
+   PROVEEDORES
+   ========================================================= */
+function viewProveedores(){
+  var rows = STATE.proveedores.map(function(p){
+    var score = providerScore(p);
+    var tier = providerTier(score);
+    return '<tr>'+
+      '<td class="num">'+esc(p.id)+'</td>'+
+      '<td>'+esc(p.nombre)+'</td>'+
+      '<td class="num">'+p.criticidad+'</td>'+
+      '<td class="num">'+p.sensibilidad+'</td>'+
+      '<td class="num">'+p.madurez+'</td>'+
+      '<td class="num">'+p.concentracion+'</td>'+
+      '<td class="num">'+p.subcontrat+'</td>'+
+      '<td class="num">'+round1(score)+'</td>'+
+      '<td><span class="pill '+classKey(tier==="Crítico"?"critico":tier)+'">'+tier+'</span></td>'+
+      '<td>'+(tier==="Crítico"||tier==="Alto" ? "Anual" : "Cada 2 años")+'</td>'+
+    '</tr>';
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>⑧ Gestión del riesgo de proveedores tecnológicos</h2></div>'+
+  '<div class="view-sub">Modelo de puntuación ponderada: criticidad del servicio (30%) · sensibilidad de datos (25%) · madurez de seguridad (25%) · concentración (10%) · subcontratistas (10%).</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th class="num">Criticidad</th><th class="num">Sensibilidad</th><th class="num">Madurez</th><th class="num">Concentración</th><th class="num">Subcontrat.</th><th class="num">Puntaje</th><th>Nivel</th><th>Reevaluación</th></tr></thead><tbody>'+
+  (rows || emptyRow(10,"No hay proveedores registrados."))+
+  '</tbody></table></div>';
+}
+
+/* =========================================================
+   INFORMAR Y REPORTAR
+   ========================================================= */
+function buildReportText(){
+  var risks = STATE.risks;
+  var scored = risks.map(function(x){ return {r:x, score:riskScoreFor(x,"residual")}; });
+  var threshold = TOLERANCE_LEVELS[STATE.toleranceLevel];
+  var over = scored.filter(function(x){return x.score>threshold;}).sort(function(a,b){return b.score-a.score;});
+  var byClass = {Bajo:0,Medio:0,Alto:0,"Crítico":0};
+  scored.forEach(function(x){ byClass[riskClass(x.score)]++; });
+  var incC = STATE.incidentes.map(function(i){return {i:i,c:incComputed(i)};});
+  var overRTO = incC.filter(function(x){return x.c.superaRTO;});
+  var indBy = {rojo:[],amarillo:[],verde:[]};
+  STATE.indicadores.forEach(function(k){ indBy[kriStatus(k)].push(k); });
+
+  var lines = [];
+  lines.push("# Informe de Riesgo Tecnológico");
+  lines.push("");
+  lines.push("**Organización:** " + STATE.orgName);
+  lines.push("**Fecha de corte:** " + fmtD(STATE.cutoffDate));
+  lines.push("**Tolerancia máxima aceptada:** " + STATE.toleranceLevel + " (puntaje ≤ " + threshold + ")");
+  lines.push("");
+  lines.push("## 1. Resumen del perfil de riesgo");
+  lines.push("- Riesgos identificados: " + risks.length);
+  lines.push("- Distribución: Bajo " + byClass.Bajo + " · Medio " + byClass.Medio + " · Alto " + byClass.Alto + " · Crítico " + byClass["Crítico"]);
+  lines.push("- Riesgos que superan la tolerancia definida: **" + over.length + "**");
+  lines.push("");
+  if(over.length){
+    lines.push("## 2. Riesgos que superan la tolerancia");
+    over.forEach(function(x){
+      lines.push("- **" + x.r.id + "** (" + riskClass(x.score) + ", puntaje " + round1(x.score) + ") — " + x.r.descripcion + ". Activo: " + x.r.activo + ". Estrategia: " + x.r.estrategia + ". Dueño: " + x.r.dueno + ". Estado: " + x.r.estado + ".");
+    });
+    lines.push("");
+  }
+  lines.push("## 3. Indicadores (KRI / KPI / KCI)");
+  lines.push("- En zona roja: " + indBy.rojo.length + (indBy.rojo.length? " — " + indBy.rojo.map(function(k){return k.nombre;}).join("; "):""));
+  lines.push("- En zona amarilla: " + indBy.amarillo.length + (indBy.amarillo.length? " — " + indBy.amarillo.map(function(k){return k.nombre;}).join("; "):""));
+  lines.push("- En zona verde: " + indBy.verde.length);
+  lines.push("");
+  lines.push("## 4. Incidentes tecnológicos");
+  lines.push("- Total registrados en el periodo: " + STATE.incidentes.length);
+  lines.push("- Incidentes que superan el RTO del proceso/activo afectado: **" + overRTO.length + "**");
+  overRTO.forEach(function(x){
+    lines.push("  - " + x.i.id + " — " + x.i.descripcion + " (MTTR " + round1(x.c.mttr) + "h vs. RTO " + x.c.rto + "h)");
+  });
+  lines.push("");
+  lines.push("## 5. Proveedores tecnológicos");
+  STATE.proveedores.forEach(function(p){
+    var s = providerScore(p);
+    lines.push("- " + p.nombre + ": puntaje " + round1(s) + " — nivel " + providerTier(s));
+  });
+  lines.push("");
+  lines.push("## 6. Recomendación");
+  lines.push(over.length || overRTO.length || indBy.rojo.length
+    ? "Se recomienda escalar al Comité de Riesgos los riesgos y hallazgos señalados en las secciones 2 y 4, priorizando aquellos en nivel Crítico y los incidentes que superan el RTO definido."
+    : "El perfil de riesgo tecnológico se encuentra dentro de los niveles de tolerancia definidos; se recomienda mantener el monitoreo periódico establecido en la Metodología.");
+  return lines.join("\n");
+}
+
+function viewInformar(){
+  var txt = buildReportText();
+  var htmlPreview = txt.split("\n").map(function(line){
+    if(line.startsWith("# ")) return "<h2 style='margin:6px 0'>"+esc(line.slice(2))+"</h2>";
+    if(line.startsWith("## ")) return "<h3 style='margin:14px 0 6px'>"+esc(line.slice(3))+"</h3>";
+    if(line.startsWith("- ")) return "<div style='padding:2px 0 2px 14px;font-size:13px;'>• "+esc(line.slice(2))+"</div>";
+    if(line.trim()==="") return "<div style='height:6px'></div>";
+    return "<div style='font-size:13px;padding:2px 0;'>"+esc(line)+"</div>";
+  }).join("");
+  return ''+
+  '<div class="view-title"><h2>⑦ Informar y reportar</h2><div class="no-print" style="display:flex;gap:8px;"><button class="btn subtle" id="printBtn">Imprimir</button><button class="btn" id="downloadBtn">Descargar (.md)</button></div></div>'+
+  '<div class="view-sub">Informe ejecutivo compilado automáticamente a partir del estado actual del inventario de riesgos, indicadores, incidentes y proveedores — listo para el Comité de Riesgos.</div>'+
+  '<div class="card" id="reportCard" style="max-width:840px;">'+htmlPreview+'</div>';
+}
+
+/* =========================================================
+   MODALS: risk / incident editors
+   ========================================================= */
+function selectOptions(list, current){
+  return list.map(function(v){ return '<option value="'+esc(v)+'" '+(v===current?"selected":"")+'>'+esc(v)+'</option>'; }).join("");
+}
+function numOptions(scale, current){
+  return scale.map(function(s){ return '<option value="'+s.v+'" '+(s.v===current?"selected":"")+'>'+s.v+' — '+esc(s.label)+'</option>'; }).join("");
+}
+function openModal(html){
+  var root = document.getElementById("modalRoot");
+  root.innerHTML = '<div class="overlay" id="ovl"><div class="modal">'+html+'</div></div>';
+  root.querySelector("#ovl").addEventListener("mousedown", function(e){ if(e.target.id==="ovl") closeModal(); });
+}
+function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
+
+function fieldPairSel(label,nameInh,nameRes,scale,valInh,valRes){
+  return '<div class="field full" style="margin-bottom:2px;">'+
+    '<label>'+esc(label)+'</label>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+      '<div><span class="small muted">Inherente</span><select name="'+nameInh+'">'+numOptions(scale,valInh)+'</select></div>'+
+      '<div><span class="small muted">Residual (post-control)</span><select name="'+nameRes+'">'+numOptions(scale,valRes)+'</select></div>'+
+    '</div></div>';
+}
+function openRiskModal(id){
+  var risk = id ? STATE.risks.filter(function(x){return x.id===id;})[0] : null;
+  var isNew = !risk;
+  var title = isNew ? "Nuevo riesgo" : "Editar riesgo " + risk.id;
+  var v = risk || {categoria:"Escenario",evento:"",descripcion:"",activo:"",amenaza:"",vulnerabilidad:"",
+    probabilidad:3, probabilidadResidual:2, criticidad:2,
+    impactos:{financiero:3,operativo:3,regulatorio:3,estrategico:3,reputacional:3},
+    impactosResidual:{financiero:2,operativo:2,regulatorio:2,estrategico:2,reputacional:2},
+    estrategia:"Mitigar",controles:"",dueno:"",estado:"Identificado",fechaId:STATE.cutoffDate,fechaRev:STATE.cutoffDate};
+  var html = ''+
+  '<h3>'+title+'</h3>'+
+  '<form id="riskForm">'+
+  '<fieldset><legend>Identificación</legend><div class="formgrid">'+
+    field("Categoría","categoria","select",CATEGORIAS,v.categoria)+
+    field("Activo / proceso afectado","activo","text",null,v.activo)+
+    field("Actor de amenaza","amenaza","text",null,v.amenaza)+
+    field("Vulnerabilidad explotada (causa)","vulnerabilidad","text",null,v.vulnerabilidad)+
+    fieldFull("Evento tecnológico (cómo la amenaza podría explotar la vulnerabilidad)","evento","textarea",null,v.evento)+
+    fieldFull("Riesgo — situación potencial de afectación al negocio","descripcion","textarea",null,v.descripcion)+
+  '</div></fieldset>'+
+  '<fieldset><legend>Evaluación — vista inherente y residual</legend>'+
+    fieldPairSel("Probabilidad (1-5)","probabilidad","probabilidadResidual",PROB_SCALE,v.probabilidad,v.probabilidadResidual)+
+    DIMENSIONES.map(function(d){
+      return fieldPairSel("Impacto "+d.label+" (1-5)","imp_"+d.key,"impRes_"+d.key,IMPACT_SCALE,v.impactos[d.key],v.impactosResidual[d.key]);
+    }).join("")+
+    '<div class="formgrid" style="margin-top:8px;">'+
+      fieldSel("Criticidad del activo (1-4)","criticidad",CRIT_SCALE,v.criticidad)+
+    '</div>'+
+  '</fieldset>'+
+  '<fieldset><legend>Tratamiento</legend><div class="formgrid">'+
+    field("Estrategia de tratamiento","estrategia","select",ESTRATEGIAS,v.estrategia)+
+    field("Estado","estado","select",ESTADOS_RIESGO,v.estado)+
+    fieldFull("Controles asociados (separar con ;)","controles","text",null,v.controles)+
+    field("Dueño del riesgo","dueno","text",null,v.dueno)+
+  '</div></fieldset>'+
+  '<div class="modal-actions">'+
+    (isNew? "" : '<button type="button" class="btn danger" id="delRiskBtn">Eliminar</button>')+
+    '<button type="button" class="btn subtle" id="cancelBtn">Cancelar</button>'+
+    '<button type="submit" class="btn">Guardar</button>'+
+  '</div>'+
+  '</form>';
+  openModal(html);
+  document.getElementById("cancelBtn").addEventListener("click", closeModal);
+  if(!isNew){
+    document.getElementById("delRiskBtn").addEventListener("click", function(){
+      STATE.risks = STATE.risks.filter(function(x){return x.id!==risk.id;});
+      saveState(); closeModal(); renderAll(); toast("Riesgo eliminado");
+    });
+  }
+  document.getElementById("riskForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var fd = new FormData(e.target);
+    var impactos = {}; var impactosResidual = {};
+    DIMENSIONES.forEach(function(d){
+      impactos[d.key] = +fd.get("imp_"+d.key);
+      impactosResidual[d.key] = +fd.get("impRes_"+d.key);
+    });
+    var obj = {
+      categoria: fd.get("categoria"), evento: fd.get("evento"), descripcion: fd.get("descripcion"), activo: fd.get("activo"),
+      amenaza: fd.get("amenaza"), vulnerabilidad: fd.get("vulnerabilidad"),
+      probabilidad:+fd.get("probabilidad"), probabilidadResidual:+fd.get("probabilidadResidual"),
+      impactos:impactos, impactosResidual:impactosResidual, criticidad:+fd.get("criticidad"),
+      estrategia: fd.get("estrategia"), controles: fd.get("controles"),
+      dueno: fd.get("dueno"), estado: fd.get("estado")
+    };
+    if(isNew){
+      obj.id = uid("R", STATE.risks);
+      obj.fechaId = STATE.cutoffDate; obj.fechaRev = STATE.cutoffDate;
+      STATE.risks.push(obj);
+      toast("Riesgo "+obj.id+" registrado");
+    } else {
+      Object.assign(risk, obj);
+      risk.fechaRev = STATE.cutoffDate;
+      toast("Riesgo "+risk.id+" actualizado");
+    }
+    deriveControlsIfNeeded_forceRefresh();
+    saveState(); closeModal(); renderAll();
+  });
+}
+function deriveControlsIfNeeded_forceRefresh(){
+  // recompute control<->risk linkage without discarding manual effectiveness ratings
+  var effByName = {}; STATE.controles.forEach(function(c){ effByName[c.nombre] = c; });
+  var seen = {}; var list = [];
+  STATE.risks.forEach(function(risk){
+    (risk.controles||"").split(";").forEach(function(cRaw){
+      var c = cRaw.trim(); if(!c) return;
+      if(!seen[c]){ seen[c] = {nombre:c, riesgos:[]}; list.push(seen[c]); }
+      if(seen[c].riesgos.indexOf(risk.id)===-1) seen[c].riesgos.push(risk.id);
+    });
+  });
+  var effCycle = ["Efectivo","Efectivo","Parcialmente efectivo","Efectivo","No efectivo"];
+  var tipoCycle = ["Preventivo","Detectivo","Preventivo","Correctivo"];
+  STATE.controles = list.map(function(c,i){
+    var prev = effByName[c.nombre];
+    return {
+      id: prev? prev.id : "C-"+String(i+1).padStart(3,"0"),
+      nombre:c.nombre, riesgos:c.riesgos,
+      tipo: prev? prev.tipo : tipoCycle[i%tipoCycle.length],
+      efectividad: prev? prev.efectividad : effCycle[i%effCycle.length],
+      ultimaPrueba: prev? prev.ultimaPrueba : "2026-0"+((i%6)+1)+"-15"
+    };
+  });
+}
+
+function openIncModal(id){
+  var inc0 = id ? STATE.incidentes.filter(function(x){return x.id===id;})[0] : null;
+  var isNew = !inc0;
+  var v = inc0 || {descripcion:"",proceso:STATE.rtoTable[0].proceso,fechaOcurrencia:"",fechaDeteccion:"",fechaResolucion:"",impacto:"Medio",urgencia:"Media",estado:"Abierto"};
+  var procList = STATE.rtoTable.map(function(p){return p.proceso;});
+  var html = ''+
+  '<h3>'+(isNew?"Nuevo incidente":"Editar incidente "+inc0.id)+'</h3>'+
+  '<form id="incForm">'+
+  '<div class="formgrid">'+
+    fieldFull("Descripción","descripcion","text",null,v.descripcion)+
+    field("Proceso / activo afectado","proceso","select",procList,v.proceso)+
+    field("Estado","estado","select",["Abierto","Resuelto"],v.estado)+
+    field("Impacto","impacto","select",["Alto","Medio","Bajo"],v.impacto)+
+    field("Urgencia","urgencia","select",["Alta","Media","Baja"],v.urgencia)+
+    field("Fecha/hora de ocurrencia","fechaOcurrencia","datetime-local",null,v.fechaOcurrencia)+
+    field("Fecha/hora de detección","fechaDeteccion","datetime-local",null,v.fechaDeteccion)+
+    field("Fecha/hora de resolución","fechaResolucion","datetime-local",null,v.fechaResolucion)+
+  '</div>'+
+  '<div class="modal-actions">'+
+    (isNew? "" : '<button type="button" class="btn danger" id="delIncBtn">Eliminar</button>')+
+    '<button type="button" class="btn subtle" id="cancelBtn">Cancelar</button>'+
+    '<button type="submit" class="btn">Guardar</button>'+
+  '</div>'+
+  '</form>';
+  openModal(html);
+  document.getElementById("cancelBtn").addEventListener("click", closeModal);
+  if(!isNew){
+    document.getElementById("delIncBtn").addEventListener("click", function(){
+      STATE.incidentes = STATE.incidentes.filter(function(x){return x.id!==inc0.id;});
+      saveState(); closeModal(); renderAll(); toast("Incidente eliminado");
+    });
+  }
+  document.getElementById("incForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var fd = new FormData(e.target);
+    var obj = {
+      descripcion:fd.get("descripcion"), proceso:fd.get("proceso"), estado:fd.get("estado"),
+      impacto:fd.get("impacto"), urgencia:fd.get("urgencia"),
+      fechaOcurrencia:fd.get("fechaOcurrencia")||null, fechaDeteccion:fd.get("fechaDeteccion")||null,
+      fechaResolucion: fd.get("estado")==="Resuelto" ? (fd.get("fechaResolucion")||null) : null
+    };
+    if(isNew){
+      obj.id = uid("I", STATE.incidentes);
+      STATE.incidentes.push(obj);
+      toast("Incidente "+obj.id+" registrado");
+    } else {
+      Object.assign(inc0, obj);
+      toast("Incidente "+inc0.id+" actualizado");
+    }
+    saveState(); closeModal(); renderAll();
+  });
+}
+
+function field(label,name,type,options,value){
+  if(type==="select"){
+    return '<div class="field"><label>'+esc(label)+'</label><select name="'+name+'">'+selectOptions(options,value)+'</select></div>';
+  }
+  return '<div class="field"><label>'+esc(label)+'</label><input type="'+type+'" name="'+name+'" value="'+esc(value||"")+'"></div>';
+}
+function fieldFull(label,name,type,options,value){
+  if(type==="textarea"){
+    return '<div class="field full"><label>'+esc(label)+'</label><textarea name="'+name+'">'+esc(value||"")+'</textarea></div>';
+  }
+  if(type==="select"){
+    return '<div class="field full"><label>'+esc(label)+'</label><select name="'+name+'">'+selectOptions(options,value)+'</select></div>';
+  }
+  return '<div class="field full"><label>'+esc(label)+'</label><input type="'+type+'" name="'+name+'" value="'+esc(value||"")+'"></div>';
+}
+function fieldSel(label,name,scale,value){
+  return '<div class="field"><label>'+esc(label)+'</label><select name="'+name+'">'+numOptions(scale,value)+'</select></div>';
+}
+function emptyRow(colspan,msg){
+  return '<tr><td colspan="'+colspan+'"><div class="empty"><span class="big">—</span>'+esc(msg)+'</div></td></tr>';
+}
+
+/* =========================================================
+   MAIN RENDER / EVENTS
+   ========================================================= */
+function renderMain(){
+  var html = "";
+  switch(ACTIVE_TAB){
+    case "dashboard": html = viewDashboard(); break;
+    case "identificar": html = viewIdentificar(); break;
+    case "evaluar": html = viewEvaluar(); break;
+    case "tratar": html = viewTratar(); break;
+    case "controlar": html = viewControlar(); break;
+    case "monitorear": html = viewMonitorear(); break;
+    case "incidentes": html = viewIncidentes(); break;
+    case "informar": html = viewInformar(); break;
+    case "proveedores": html = viewProveedores(); break;
+  }
+  document.getElementById("main").innerHTML = html;
+  bindMainEvents();
+}
+function bindMainEvents(){
+  if(document.querySelector(".heatmap-widget")) bindHeatmapEvents();
+  document.querySelectorAll("[data-edit-risk]").forEach(function(b){
+    b.addEventListener("click", function(){ openRiskModal(b.getAttribute("data-edit-risk")); });
+  });
+  document.querySelectorAll("[data-edit-inc]").forEach(function(b){
+    b.addEventListener("click", function(){ openIncModal(b.getAttribute("data-edit-inc")); });
+  });
+  var newRisk = document.getElementById("newRiskBtn");
+  if(newRisk) newRisk.addEventListener("click", function(){ openRiskModal(null); });
+  var newInc = document.getElementById("newIncBtn");
+  if(newInc) newInc.addEventListener("click", function(){ openIncModal(null); });
+  var printBtn = document.getElementById("printBtn");
+  if(printBtn) printBtn.addEventListener("click", function(){ window.print(); });
+  var dlBtn = document.getElementById("downloadBtn");
+  if(dlBtn) dlBtn.addEventListener("click", function(){
+    var blob = new Blob([buildReportText()], {type:"text/markdown;charset=utf-8"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "Informe-Riesgo-Tecnologico-"+STATE.cutoffDate+".md";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
+  });
+}
+
+function renderHeader(){
+  document.getElementById("orgNameInput").value = STATE.orgName;
+  var tSel = document.getElementById("toleranceSelect");
+  tSel.innerHTML = Object.keys(TOLERANCE_LEVELS).map(function(k){
+    return '<option value="'+k+'" '+(k===STATE.toleranceLevel?"selected":"")+'>'+k+' (≤ '+TOLERANCE_LEVELS[k]+')</option>';
+  }).join("");
+  document.getElementById("cutoffDate").value = STATE.cutoffDate;
+  var badge = document.getElementById("userBadge");
+  if(badge){
+    badge.innerHTML = esc(CURRENT_USER.email) + ' <button id="logoutBtn" type="button">Cerrar sesión</button>';
+    document.getElementById("logoutBtn").addEventListener("click", async function(){
+      await SB.auth.signOut();
+      window.location.reload();
+    });
+  }
+}
+
+function renderAll(){
+  renderHeader();
+  renderTabs();
+  renderMain();
+}
+
+/* header events (bound once) */
+function bindHeaderEvents(){
+  document.getElementById("orgNameInput").addEventListener("input", function(e){
+    STATE.orgName = e.target.value || "[Nombre de la Organización]";
+    saveState();
+  });
+  document.getElementById("toleranceSelect").addEventListener("change", function(e){
+    STATE.toleranceLevel = e.target.value; saveState(); renderAll();
+  });
+  document.getElementById("cutoffDate").addEventListener("change", function(e){
+    STATE.cutoffDate = e.target.value; saveState(); renderAll();
+  });
+  document.getElementById("snapshotBtn").addEventListener("click", function(){
+    var byClass = {bajo:0,medio:0,alto:0,critico:0};
+    STATE.risks.forEach(function(x){ byClass[classKey(riskClass(riskScoreFor(x,"residual")))]++; });
+    var label = STATE.cutoffDate.slice(0,7);
+    var existing = STATE.evolucion.filter(function(e){return e.fecha===label;})[0];
+    if(existing){ Object.assign(existing, byClass); }
+    else { STATE.evolucion.push({fecha:label, bajo:byClass.bajo, medio:byClass.medio, alto:byClass.alto, critico:byClass.critico}); }
+    STATE.evolucion.sort(function(a,b){return a.fecha<b.fecha?-1:1;});
+    saveState(); renderAll(); toast("Snapshot de "+label+" registrado en la evolución de riesgo");
+  });
+  document.getElementById("resetBtn").addEventListener("click", async function(){
+    if(!confirm("¿Restablecer todos los datos de tu organización a los valores de ejemplo? Se perderán los cambios realizados por todo tu equipo.")) return;
+    STATE = seedState();
+    deriveControlsIfNeeded();
+    await SB.from("org_data").update({ data: STATE, updated_at: new Date().toISOString(), updated_by: CURRENT_USER.id }).eq("org_id", CURRENT_ORG_ID);
+    renderAll(); toast("Datos de ejemplo restablecidos");
+  });
+}
+
+/* theme toggle support (host may stamp data-theme on <html>) */
+new MutationObserver(function(){ /* tokens react via CSS automatically */ }).observe(document.documentElement,{attributes:true, attributeFilter:["data-theme"]});
+
+/* =========================================================
+   AUTENTICACIÓN Y ALTA DE ORGANIZACIÓN (Supabase Auth)
+   ========================================================= */
+function showAuth(html){
+  document.getElementById("appRoot").hidden = true;
+  var ar = document.getElementById("authRoot");
+  ar.hidden = false;
+  ar.innerHTML = html;
+}
+function showApp(){
+  document.getElementById("authRoot").hidden = true;
+  document.getElementById("authRoot").innerHTML = "";
+  document.getElementById("appRoot").hidden = false;
+}
+function renderConfigMissing(){
+  showAuth('<div class="authwrap"><div class="authcard">'+
+    '<div class="mark">Consola CPGRTI</div>'+
+    '<div class="sub">Falta configurar la conexión a la base de datos.</div>'+
+    '<div class="autherr">Crea un archivo <code>config.js</code> junto a esta página (copia <code>config.example.js</code>) con tu URL y clave anónima de Supabase, y vuelve a cargar la página. Ver README.md para el paso a paso.</div>'+
+  '</div></div>');
+}
+function renderAuthScreen(mode, err, msg){
+  var isLogin = mode!=="signup";
+  showAuth('<div class="authwrap"><div class="authcard">'+
+    '<div class="mark">Consola CPGRTI</div>'+
+    '<div class="sub">Gestión del riesgo tecnológico — acceso por organización</div>'+
+    '<div class="authtabs">'+
+      '<button type="button" data-authtab="login" class="'+(isLogin?"active":"")+'">Iniciar sesión</button>'+
+      '<button type="button" data-authtab="signup" class="'+(!isLogin?"active":"")+'">Crear cuenta</button>'+
+    '</div>'+
+    '<form class="authform" id="authForm">'+
+      '<div class="field"><label>Correo</label><input type="email" name="email" required autocomplete="email"></div>'+
+      '<div class="field"><label>Contraseña</label><input type="password" name="password" required minlength="6" autocomplete="'+(isLogin?"current-password":"new-password")+'"></div>'+
+      '<button type="submit" class="btn">'+(isLogin?"Iniciar sesión":"Crear cuenta")+'</button>'+
+    '</form>'+
+    '<div class="autherr" id="authErr">'+esc(err||"")+'</div>'+
+    '<div class="authmsg" id="authMsg">'+esc(msg||"")+'</div>'+
+  '</div></div>');
+  document.querySelectorAll("[data-authtab]").forEach(function(b){
+    b.addEventListener("click", function(){ renderAuthScreen(b.getAttribute("data-authtab")); });
+  });
+  document.getElementById("authForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var fd = new FormData(e.target);
+    var email = fd.get("email"), password = fd.get("password");
+    var errEl = document.getElementById("authErr");
+    errEl.textContent = "";
+    if(isLogin){
+      var { data, error } = await SB.auth.signInWithPassword({ email:email, password:password });
+      if(error){ errEl.textContent = error.message; return; }
+      CURRENT_USER = data.user;
+      await routeAfterAuth();
+    } else {
+      var { data, error } = await SB.auth.signUp({ email:email, password:password });
+      if(error){ errEl.textContent = error.message; return; }
+      if(data.session){
+        CURRENT_USER = data.user;
+        await routeAfterAuth();
+      } else {
+        renderAuthScreen("login", "", "Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
+      }
+    }
+  });
+}
+function renderOrgSetupScreen(err){
+  showAuth('<div class="authwrap"><div class="authcard">'+
+    '<div class="mark">Configura tu organización</div>'+
+    '<div class="sub">Vas a crear el espacio de trabajo de tu banco/organización en la Consola CPGRTI. Serás el administrador de esta organización.</div>'+
+    '<form class="authform" id="orgForm">'+
+      '<div class="field"><label>Nombre de la organización</label><input type="text" name="orgName" required placeholder="[Nombre de la Organización]"></div>'+
+      '<button type="submit" class="btn">Crear organización y continuar</button>'+
+    '</form>'+
+    '<div class="autherr" id="orgErr">'+esc(err||"")+'</div>'+
+  '</div></div>');
+  document.getElementById("orgForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var orgName = new FormData(e.target).get("orgName").trim();
+    var errEl = document.getElementById("orgErr");
+    var { data: org, error: orgErr } = await SB.from("organizations").insert({ name: orgName }).select("id").single();
+    if(orgErr){ errEl.textContent = orgErr.message; return; }
+    var { error: profErr } = await SB.from("profiles").insert({ id: CURRENT_USER.id, org_id: org.id, role: "admin", full_name: CURRENT_USER.email });
+    if(profErr){ errEl.textContent = profErr.message; return; }
+    CURRENT_ORG_ID = org.id;
+    await loadState();
+    STATE.orgName = orgName;
+    saveState();
+    showApp();
+    bindHeaderEvents();
+    renderAll();
+  });
+}
+async function routeAfterAuth(){
+  var { data: profile, error } = await SB.from("profiles").select("org_id, role, full_name").eq("id", CURRENT_USER.id).maybeSingle();
+  if(error){ renderAuthScreen("login", error.message); return; }
+  if(!profile){ renderOrgSetupScreen(); return; }
+  CURRENT_ORG_ID = profile.org_id;
+  await loadState();
+  showApp();
+  bindHeaderEvents();
+  renderAll();
+}
+function initSupabase(){
+  if(!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY || !window.supabase){ renderConfigMissing(); return false; }
+  SB = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  return true;
+}
+async function boot(){
+  if(!initSupabase()) return;
+  var { data:{ session } } = await SB.auth.getSession();
+  if(!session){ renderAuthScreen("login"); return; }
+  CURRENT_USER = session.user;
+  await routeAfterAuth();
+}
+
+boot();
+
+})();
+</script>
+</body>
+</html>
