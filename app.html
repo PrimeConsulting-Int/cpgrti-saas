@@ -1706,11 +1706,12 @@ function renderOrgSetupScreen(err){
     e.preventDefault();
     var orgName = new FormData(e.target).get("orgName").trim();
     var errEl = document.getElementById("orgErr");
-    var { data: org, error: orgErr } = await SB.from("organizations").insert({ name: orgName }).select("id").single();
+    var newOrgId = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(16)+Math.random().toString(16).slice(2)));
+    var { error: orgErr } = await SB.from("organizations").insert({ id: newOrgId, name: orgName });
     if(orgErr){ errEl.textContent = orgErr.message; return; }
-    var { error: profErr } = await SB.from("profiles").insert({ id: CURRENT_USER.id, org_id: org.id, role: "admin", full_name: CURRENT_USER.email });
+    var { error: profErr } = await SB.from("profiles").insert({ id: CURRENT_USER.id, org_id: newOrgId, role: "admin", full_name: CURRENT_USER.email });
     if(profErr){ errEl.textContent = profErr.message; return; }
-    CURRENT_ORG_ID = org.id;
+    CURRENT_ORG_ID = newOrgId;
     await loadState();
     STATE.orgName = orgName;
     saveState();
