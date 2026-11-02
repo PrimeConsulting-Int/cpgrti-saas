@@ -3,9 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Consola de Riesgo Tecnológico — CPGRTI</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
+<title>Consola Risk IT</title>
 <style>
   :root{
     --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E7EBEF; --surface-3:#DCE2E8;
@@ -317,13 +315,11 @@
 </head>
 <body>
 
-<div id="authRoot"></div>
-
-<div id="appRoot" hidden>
+<div id="appRoot">
 <div id="app">
   <header class="appbar">
     <div class="brand">
-      <div class="mark">Consola CPGRTI</div>
+      <div class="mark">Consola Risk IT</div>
       <div class="org">Organización: <input id="orgNameInput" type="text" /></div>
     </div>
     <div class="headctl no-print">
@@ -337,7 +333,6 @@
       </div>
       <button class="btn subtle" id="snapshotBtn" title="Registra el estado actual de riesgos como punto histórico para el gráfico de evolución">Registrar snapshot mensual</button>
       <button class="btn ghost" id="resetBtn">Restablecer datos de ejemplo</button>
-      <div class="userbadge" id="userBadge"></div>
     </div>
   </header>
   <nav class="tabs" id="tabs"></nav>
@@ -580,35 +575,20 @@ function kriStatus(k){
 }
 
 /* =========================================================
-   STATE / PERSISTENCE — respaldado en Supabase (org_data), un documento JSON por organización.
+   STATE / PERSISTENCE — almacenamiento local del navegador (sin inicio de sesión)
    ========================================================= */
-var SB = null;
+var LS_KEY = "cpgrti_console_v2";
 var STATE = null;
-var CURRENT_ORG_ID = null;
-var CURRENT_USER = null;
-var _saveTimer = null;
-
-async function loadState(){
-  var { data, error } = await SB.from("org_data").select("data").eq("org_id", CURRENT_ORG_ID).maybeSingle();
-  if(error){ console.error(error); toast("Error al cargar los datos: " + error.message); STATE = seedState(); deriveControlsIfNeeded(); return; }
-  if(data && data.data){
-    STATE = data.data;
-    deriveControlsIfNeeded();
-    return;
-  }
-  // primera vez de esta organización: sembrar con datos de ejemplo y crear el documento
+function loadState(){
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){ STATE = JSON.parse(raw); deriveControlsIfNeeded(); return; }
+  }catch(e){}
   STATE = seedState();
   deriveControlsIfNeeded();
-  await SB.from("org_data").insert({ org_id: CURRENT_ORG_ID, data: STATE, updated_by: CURRENT_USER.id });
 }
 function saveState(){
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(async function(){
-    var { error } = await SB.from("org_data")
-      .update({ data: STATE, updated_at: new Date().toISOString(), updated_by: CURRENT_USER.id })
-      .eq("org_id", CURRENT_ORG_ID);
-    if(error){ console.error(error); toast("No se pudo guardar: " + error.message); }
-  }, 400);
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){}
 }
 function deriveControlsIfNeeded(){
   if(STATE.controles && STATE.controles.length) return;
@@ -1578,14 +1558,6 @@ function renderHeader(){
     return '<option value="'+k+'" '+(k===STATE.toleranceLevel?"selected":"")+'>'+k+' (≤ '+TOLERANCE_LEVELS[k]+')</option>';
   }).join("");
   document.getElementById("cutoffDate").value = STATE.cutoffDate;
-  var badge = document.getElementById("userBadge");
-  if(badge){
-    badge.innerHTML = esc(CURRENT_USER.email) + ' <button id="logoutBtn" type="button">Cerrar sesión</button>';
-    document.getElementById("logoutBtn").addEventListener("click", async function(){
-      await SB.auth.signOut();
-      window.location.reload();
-    });
-  }
 }
 
 function renderAll(){
@@ -1616,134 +1588,20 @@ function bindHeaderEvents(){
     STATE.evolucion.sort(function(a,b){return a.fecha<b.fecha?-1:1;});
     saveState(); renderAll(); toast("Snapshot de "+label+" registrado en la evolución de riesgo");
   });
-  document.getElementById("resetBtn").addEventListener("click", async function(){
-    if(!confirm("¿Restablecer todos los datos de tu organización a los valores de ejemplo? Se perderán los cambios realizados por todo tu equipo.")) return;
-    STATE = seedState();
-    deriveControlsIfNeeded();
-    await SB.from("org_data").update({ data: STATE, updated_at: new Date().toISOString(), updated_by: CURRENT_USER.id }).eq("org_id", CURRENT_ORG_ID);
-    renderAll(); toast("Datos de ejemplo restablecidos");
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    if(!confirm("¿Restablecer todos los datos a los valores de ejemplo? Se perderán los cambios realizados.")) return;
+    try{ localStorage.removeItem(LS_KEY); }catch(e){}
+    loadState(); renderAll(); toast("Datos de ejemplo restablecidos");
   });
 }
 
 /* theme toggle support (host may stamp data-theme on <html>) */
 new MutationObserver(function(){ /* tokens react via CSS automatically */ }).observe(document.documentElement,{attributes:true, attributeFilter:["data-theme"]});
 
-/* =========================================================
-   AUTENTICACIÓN Y ALTA DE ORGANIZACIÓN (Supabase Auth)
-   ========================================================= */
-function showAuth(html){
-  document.getElementById("appRoot").hidden = true;
-  var ar = document.getElementById("authRoot");
-  ar.hidden = false;
-  ar.innerHTML = html;
-}
-function showApp(){
-  document.getElementById("authRoot").hidden = true;
-  document.getElementById("authRoot").innerHTML = "";
-  document.getElementById("appRoot").hidden = false;
-}
-function renderConfigMissing(){
-  showAuth('<div class="authwrap"><div class="authcard">'+
-    '<div class="mark">Consola CPGRTI</div>'+
-    '<div class="sub">Falta configurar la conexión a la base de datos.</div>'+
-    '<div class="autherr">Crea un archivo <code>config.js</code> junto a esta página (copia <code>config.example.js</code>) con tu URL y clave anónima de Supabase, y vuelve a cargar la página. Ver README.md para el paso a paso.</div>'+
-  '</div></div>');
-}
-function renderAuthScreen(mode, err, msg){
-  var isLogin = mode!=="signup";
-  showAuth('<div class="authwrap"><div class="authcard">'+
-    '<div class="mark">Consola CPGRTI</div>'+
-    '<div class="sub">Gestión del riesgo tecnológico — acceso por organización</div>'+
-    '<div class="authtabs">'+
-      '<button type="button" data-authtab="login" class="'+(isLogin?"active":"")+'">Iniciar sesión</button>'+
-      '<button type="button" data-authtab="signup" class="'+(!isLogin?"active":"")+'">Crear cuenta</button>'+
-    '</div>'+
-    '<form class="authform" id="authForm">'+
-      '<div class="field"><label>Correo</label><input type="email" name="email" required autocomplete="email"></div>'+
-      '<div class="field"><label>Contraseña</label><input type="password" name="password" required minlength="6" autocomplete="'+(isLogin?"current-password":"new-password")+'"></div>'+
-      '<button type="submit" class="btn">'+(isLogin?"Iniciar sesión":"Crear cuenta")+'</button>'+
-    '</form>'+
-    '<div class="autherr" id="authErr">'+esc(err||"")+'</div>'+
-    '<div class="authmsg" id="authMsg">'+esc(msg||"")+'</div>'+
-  '</div></div>');
-  document.querySelectorAll("[data-authtab]").forEach(function(b){
-    b.addEventListener("click", function(){ renderAuthScreen(b.getAttribute("data-authtab")); });
-  });
-  document.getElementById("authForm").addEventListener("submit", async function(e){
-    e.preventDefault();
-    var fd = new FormData(e.target);
-    var email = fd.get("email"), password = fd.get("password");
-    var errEl = document.getElementById("authErr");
-    errEl.textContent = "";
-    if(isLogin){
-      var { data, error } = await SB.auth.signInWithPassword({ email:email, password:password });
-      if(error){ errEl.textContent = error.message; return; }
-      CURRENT_USER = data.user;
-      await routeAfterAuth();
-    } else {
-      var { data, error } = await SB.auth.signUp({ email:email, password:password });
-      if(error){ errEl.textContent = error.message; return; }
-      if(data.session){
-        CURRENT_USER = data.user;
-        await routeAfterAuth();
-      } else {
-        renderAuthScreen("login", "", "Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
-      }
-    }
-  });
-}
-function renderOrgSetupScreen(err){
-  showAuth('<div class="authwrap"><div class="authcard">'+
-    '<div class="mark">Configura tu organización</div>'+
-    '<div class="sub">Vas a crear el espacio de trabajo de tu banco/organización en la Consola CPGRTI. Serás el administrador de esta organización.</div>'+
-    '<form class="authform" id="orgForm">'+
-      '<div class="field"><label>Nombre de la organización</label><input type="text" name="orgName" required placeholder="[Nombre de la Organización]"></div>'+
-      '<button type="submit" class="btn">Crear organización y continuar</button>'+
-    '</form>'+
-    '<div class="autherr" id="orgErr">'+esc(err||"")+'</div>'+
-  '</div></div>');
-  document.getElementById("orgForm").addEventListener("submit", async function(e){
-    e.preventDefault();
-    var orgName = new FormData(e.target).get("orgName").trim();
-    var errEl = document.getElementById("orgErr");
-    var newOrgId = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(16)+Math.random().toString(16).slice(2)));
-    var { error: orgErr } = await SB.from("organizations").insert({ id: newOrgId, name: orgName });
-    if(orgErr){ errEl.textContent = orgErr.message; return; }
-    var { error: profErr } = await SB.from("profiles").insert({ id: CURRENT_USER.id, org_id: newOrgId, role: "admin", full_name: CURRENT_USER.email });
-    if(profErr){ errEl.textContent = profErr.message; return; }
-    CURRENT_ORG_ID = newOrgId;
-    await loadState();
-    STATE.orgName = orgName;
-    saveState();
-    showApp();
-    bindHeaderEvents();
-    renderAll();
-  });
-}
-async function routeAfterAuth(){
-  var { data: profile, error } = await SB.from("profiles").select("org_id, role, full_name").eq("id", CURRENT_USER.id).maybeSingle();
-  if(error){ renderAuthScreen("login", error.message); return; }
-  if(!profile){ renderOrgSetupScreen(); return; }
-  CURRENT_ORG_ID = profile.org_id;
-  await loadState();
-  showApp();
-  bindHeaderEvents();
-  renderAll();
-}
-function initSupabase(){
-  if(!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY || !window.supabase){ renderConfigMissing(); return false; }
-  SB = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-  return true;
-}
-async function boot(){
-  if(!initSupabase()) return;
-  var { data:{ session } } = await SB.auth.getSession();
-  if(!session){ renderAuthScreen("login"); return; }
-  CURRENT_USER = session.user;
-  await routeAfterAuth();
-}
-
-boot();
+/* boot */
+loadState();
+bindHeaderEvents();
+renderAll();
 
 })();
 </script>
